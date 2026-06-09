@@ -8,11 +8,11 @@
 export const HERO_IMAGE = "/manus-storage/DSC00304-HDR.jpg";
 
 /**
- * Optional hero video background. Drop a file at this path (e.g. the NAS space
- * walkthrough) and the homepage hero plays it automatically, falling back to
- * HERO_IMAGE as the poster until then.
+ * Homepage hero video background — the edited Cook Up promo. Plays automatically
+ * (muted, then unmutes on the visitor's first interaction), falling back to
+ * HERO_IMAGE as the poster until it loads.
  */
-export const HERO_VIDEO = "/manus-storage/space-hero.mp4";
+export const HERO_VIDEO = "/manus-storage/video/cookup.mp4";
 
 // Secondary hero used on interior page headers.
 export const PAGE_HERO_IMAGE = "/manus-storage/DSC00327-HDR.jpg";
@@ -31,6 +31,7 @@ export const VIDEO = {
   voiceOlder: "/manus-storage/video/testimonial-older.mp4",
   voiceGentleman: "/manus-storage/video/testimonial-gentleman.mp4",
   voiceLady: "/manus-storage/video/testimonial-lady.mp4",
+  wedding: "/manus-storage/video/wedding.mp4",
 };
 
 // Posters (still frames extracted from the videos) for each clip.
@@ -43,6 +44,7 @@ export const VIDEO_POSTER = {
   voiceOlder: "/manus-storage/video/testimonial-older.jpg",
   voiceGentleman: "/manus-storage/video/testimonial-gentleman.jpg",
   voiceLady: "/manus-storage/video/testimonial-lady.jpg",
+  wedding: "/manus-storage/video/wedding.jpg",
 };
 
 // Curated gallery selection — venue architecture mixed with real event moments.

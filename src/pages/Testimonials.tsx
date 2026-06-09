@@ -72,11 +72,10 @@ export default function Testimonials() {
           <p className="reveal text-white/45 text-sm text-center mb-12" style={{ fontFamily: "'Lato', sans-serif" }}>
             A few words from the people who make JVO special.
           </p>
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
             {[
               { src: VIDEO.voiceLady, poster: VIDEO_POSTER.voiceLady },
               { src: VIDEO.voiceGentleman, poster: VIDEO_POSTER.voiceGentleman },
-              { src: VIDEO.voiceOlder, poster: VIDEO_POSTER.voiceOlder },
             ].map((v, i) => (
               <div
                 key={i}

@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
+import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
 import { HERO_IMAGE, HERO_VIDEO, VIDEO, VIDEO_POSTER } from "@/lib/media";
 
 const highlights = [
@@ -13,7 +15,7 @@ const highlights = [
   {
     title: "Private Celebrations",
     body: "Birthdays, graduations, and milestones — an intimate, polished setting for the people who matter.",
-    img: "/manus-storage/people-smile.jpg",
+    img: "/manus-storage/people-celebration.jpg",
   },
   {
     title: "Game Nights & Socials",
@@ -24,6 +26,8 @@ const highlights = [
 
 export default function Home() {
   useReveal();
+  const heroRef = useRef<HTMLVideoElement>(null);
+  useUnmuteOnInteraction(heroRef);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh" }}>
@@ -33,6 +37,7 @@ export default function Home() {
       <section className="relative flex items-center overflow-hidden" style={{ height: "100vh", minHeight: "620px" }}>
         {/* Video background (drops in at HERO_VIDEO); poster shows until/if absent */}
         <video
+          ref={heroRef}
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay
           muted
@@ -156,50 +161,50 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Video in motion */}
+      {/* Video in motion — large reels front and center */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-2 items-center">
-            <div className="reveal">
-              <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-                See It In Motion
-              </p>
-              <h2 className="text-white text-3xl sm:text-4xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-                The energy of a full house
-              </h2>
-              <div className="accent-divider mt-5" />
-              <p className="text-white/50 text-base leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
-                From game nights to receptions, JVO comes alive when your people fill the
-                room. Take a look — then picture your own event here.
-              </p>
-              <Link to="/testimonials" className="btn-white mt-8 inline-block">
-                Watch Testimonials
-              </Link>
-            </div>
-            <div className="reveal grid grid-cols-2 gap-4">
-              {[
-                { src: VIDEO.outdoorReel, poster: VIDEO_POSTER.outdoorReel },
-                { src: VIDEO.gameNight, poster: VIDEO_POSTER.gameNight },
-              ].map((v, i) => (
-                <div
-                  key={i}
-                  className="overflow-hidden"
-                  style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000", borderRadius: "0.25rem" }}
+          <div className="reveal text-center max-w-2xl mx-auto mb-12">
+            <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+              See It In Motion
+            </p>
+            <h2 className="text-white text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+              The energy of a full house
+            </h2>
+            <div className="accent-divider mx-auto mt-5" />
+            <p className="text-white/50 text-base leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
+              From game nights to receptions, JVO comes alive when your people fill the
+              room. Take a look — then picture your own event here.
+            </p>
+          </div>
+          <div className="reveal grid grid-cols-2 gap-5 sm:gap-8 max-w-3xl mx-auto">
+            {[
+              { src: VIDEO.outdoorReel, poster: VIDEO_POSTER.outdoorReel },
+              { src: VIDEO.gameNight, poster: VIDEO_POSTER.gameNight },
+            ].map((v, i) => (
+              <div
+                key={i}
+                className="overflow-hidden"
+                style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000", borderRadius: "0.25rem" }}
+              >
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  poster={v.poster}
+                  className="w-full"
+                  style={{ display: "block", aspectRatio: "9 / 16", objectFit: "cover" }}
                 >
-                  <video
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    poster={v.poster}
-                    className="w-full"
-                    style={{ display: "block", aspectRatio: "9 / 16", objectFit: "cover" }}
-                  >
-                    <source src={v.src} type="video/mp4" />
-                  </video>
-                </div>
-              ))}
-            </div>
+                  <source src={v.src} type="video/mp4" />
+                </video>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-12">
+            <Link to="/testimonials" className="reveal btn-white inline-block">
+              Watch Testimonials
+            </Link>
           </div>
         </div>
       </section>

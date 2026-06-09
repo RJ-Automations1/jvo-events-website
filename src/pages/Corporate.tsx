@@ -1,28 +1,28 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
+import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
 import { VIDEO, VIDEO_POSTER } from "@/lib/media";
 
 const perks = [
-  { title: "Meetings & Trainings", body: "A focused, professional setting with room to present, collaborate, and host your team." },
-  { title: "Mixers & Networking", body: "An inviting space for after-hours mixers, client events, and community gatherings." },
-  { title: "Launches & Celebrations", body: "Product launches, company milestones, and holiday parties with the wow factor." },
+  { title: "Weddings & Receptions", body: "A refined backdrop for your ceremony and celebration, with room to make the day entirely your own." },
+  { title: "Celebrations & Socials", body: "Birthdays, milestones, game nights, and mixers — an inviting space built for good food and good company." },
+  { title: "Corporate & Launches", body: "Meetings, trainings, product launches, and company celebrations with a polished, professional setting." },
+];
+
+/** The three signature event films shown on the Host page. */
+const films = [
+  { src: VIDEO.cookup, poster: VIDEO_POSTER.cookup, title: "Corporate & Cook Ups" },
+  { src: VIDEO.gameNight, poster: VIDEO_POSTER.gameNight, title: "Game Nights & Socials" },
+  { src: VIDEO.wedding, poster: VIDEO_POSTER.wedding, title: "Weddings & Receptions" },
 ];
 
 export default function Corporate() {
   useReveal();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [muted, setMuted] = useState(true);
-
-  const toggleSound = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    if (!v.muted) v.play().catch(() => {});
-    setMuted(v.muted);
-  };
+  const heroRef = useRef<HTMLVideoElement>(null);
+  useUnmuteOnInteraction(heroRef);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh" }}>
@@ -31,15 +31,15 @@ export default function Corporate() {
       {/* Video hero */}
       <section className="relative flex items-center overflow-hidden" style={{ minHeight: "82vh" }}>
         <video
-          ref={videoRef}
+          ref={heroRef}
           className="absolute inset-0 h-full w-full object-cover"
           autoPlay
           muted
           loop
           playsInline
-          poster={VIDEO_POSTER.cookup}
+          poster={VIDEO_POSTER.outdoorReel}
         >
-          <source src={VIDEO.cookup} type="video/mp4" />
+          <source src={VIDEO.outdoorReel} type="video/mp4" />
         </video>
         <div
           className="absolute inset-0"
@@ -51,32 +51,69 @@ export default function Corporate() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="max-w-2xl">
             <p className="text-white/55 text-xs sm:text-sm tracking-[0.3em] uppercase mb-4" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Corporate Events
+              Weddings · Celebrations · Corporate
             </p>
             <h1 className="text-white text-5xl sm:text-6xl font-bold leading-[1.05]" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Host Your
-              <br />
-              Corporate Event
+              Host Your Event
             </h1>
             <div className="accent-divider mt-6" />
             <p className="text-white/70 text-base sm:text-lg leading-relaxed mt-6 max-w-xl" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Meetings, mixers, product launches, and company celebrations — JVO gives your
-              business a polished, flexible space with room to impress.
+              Weddings, celebrations, game nights, mixers, and corporate gatherings — JVO
+              gives every kind of event a polished, flexible space with room to impress.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-9">
               <Link to="/book" className="btn-white">
                 Host Your Event
               </Link>
-              <button type="button" onClick={toggleSound} className="btn-outline" style={{ cursor: "pointer" }}>
-                {muted ? "🔊 Turn On Sound" : "🔇 Mute"}
-              </button>
+              <Link to="/gallery" className="btn-outline">
+                View Space
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Perks */}
+      {/* Event films — the three signature event types */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+              Every Kind Of Event
+            </p>
+            <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+              One space, every occasion
+            </h2>
+            <div className="reveal accent-divider mx-auto mt-5" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {films.map((f) => (
+              <div key={f.title} className="reveal">
+                <div
+                  className="overflow-hidden"
+                  style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000", borderRadius: "0.25rem" }}
+                >
+                  <video
+                    controls
+                    playsInline
+                    preload="none"
+                    poster={f.poster}
+                    className="w-full"
+                    style={{ display: "block", aspectRatio: "16 / 9", background: "#000" }}
+                  >
+                    <source src={f.src} type="video/mp4" />
+                  </video>
+                </div>
+                <h3 className="text-white text-base font-bold mt-4 text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  {f.title}
+                </h3>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Perks */}
+      <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 md:grid-cols-3">
             {perks.map((p) => (
@@ -98,10 +135,10 @@ export default function Corporate() {
       </section>
 
       {/* Pricing */}
-      <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
+      <section style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-            Corporate Packages
+            Event Packages
           </p>
           <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
             Simple, transparent pricing
@@ -121,7 +158,7 @@ export default function Corporate() {
             ))}
           </div>
           <Link to="/book" className="reveal btn-white mt-10 inline-block">
-            Book Your Corporate Event
+            Book Your Event
           </Link>
         </div>
       </section>
