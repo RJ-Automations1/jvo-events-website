@@ -63,6 +63,42 @@ export default function Testimonials() {
         </div>
       </section>
 
+      {/* Voices from JVO — short clips from the community */}
+      <section style={{ background: "#0b0b0b", padding: "80px 0" }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="reveal text-white text-2xl sm:text-3xl font-bold text-center mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
+            More voices from JVO
+          </h2>
+          <p className="reveal text-white/45 text-sm text-center mb-12" style={{ fontFamily: "'Lato', sans-serif" }}>
+            A few words from the people who make JVO special.
+          </p>
+          <div className="grid gap-6 md:grid-cols-3">
+            {[
+              { src: VIDEO.voiceLady, poster: VIDEO_POSTER.voiceLady },
+              { src: VIDEO.voiceGentleman, poster: VIDEO_POSTER.voiceGentleman },
+              { src: VIDEO.voiceOlder, poster: VIDEO_POSTER.voiceOlder },
+            ].map((v, i) => (
+              <div
+                key={i}
+                className="reveal overflow-hidden"
+                style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000", borderRadius: "0.25rem" }}
+              >
+                <video
+                  controls
+                  playsInline
+                  preload="none"
+                  poster={v.poster}
+                  className="w-full"
+                  style={{ display: "block", aspectRatio: "16 / 9", background: "#000" }}
+                >
+                  <source src={v.src} type="video/mp4" />
+                </video>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Event reels */}
       <section style={{ background: "#080808", padding: "80px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
