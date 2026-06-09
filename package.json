@@ -1,0 +1,35 @@
+{
+  "name": "jvo-events-website",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n vite,api -c cyan,magenta \"vite\" \"node server.js\"",
+    "dev:web": "vite",
+    "dev:api": "node server.js",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "googleapis": "^144.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-day-picker": "^9.4.4",
+    "react-router-dom": "^6.26.2",
+    "sonner": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.1",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8"
+  }
+}

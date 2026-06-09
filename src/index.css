@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: #080808;
+  color: #ffffff;
+  font-family: "Lato", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* White call-to-action button used across the site */
+.btn-white {
+  display: inline-block;
+  background: #ffffff;
+  color: #080808;
+  font-family: "Lato", sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.95rem 2.25rem;
+  border: 1px solid #ffffff;
+  border-radius: 0.125rem;
+  text-decoration: none;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.btn-white:hover {
+  background: transparent;
+  color: #ffffff;
+}
+
+/* Outlined variant for use on light or busy backgrounds */
+.btn-outline {
+  display: inline-block;
+  background: transparent;
+  color: #ffffff;
+  font-family: "Lato", sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.95rem 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 0.125rem;
+  text-decoration: none;
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+.btn-outline:hover {
+  background: #ffffff;
+  color: #080808;
+  border-color: #ffffff;
+}
+
+/* Short accent rule used under section headings / hero titles */
+.accent-divider {
+  width: 56px;
+  height: 2px;
+  background: #ffffff;
+  opacity: 0.85;
+}
+
+/* Scroll-reveal: elements fade + rise into view when observed */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  will-change: opacity, transform;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* react-day-picker — dark theme tuned to the JVO palette */
+.jvo-calendar .rdp-root {
+  --rdp-accent-color: #ffffff;
+  --rdp-accent-background-color: #ffffff;
+  --rdp-today-color: #ffffff;
+  --rdp-day-width: 2.4rem;
+  --rdp-day-height: 2.4rem;
+  --rdp-day_button-width: 2.4rem;
+  --rdp-day_button-height: 2.4rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: "Lato", sans-serif;
+  margin: 0 auto;
+}
+.jvo-calendar .rdp-month_caption,
+.jvo-calendar .rdp-weekday {
+  color: rgba(255, 255, 255, 0.55);
+}
+.jvo-calendar .rdp-weekday {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.jvo-calendar .rdp-chevron {
+  fill: rgba(255, 255, 255, 0.7);
+}
+.jvo-calendar .rdp-day_button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.jvo-calendar .rdp-selected .rdp-day_button {
+  background: #ffffff;
+  color: #080808;
+  font-weight: 700;
+}
+.jvo-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+/* Booked + disabled-past days */
+.jvo-calendar .rdp-disabled {
+  opacity: 1;
+}
+.jvo-calendar .rdp-disabled .rdp-day_button {
+  color: rgba(255, 255, 255, 0.22);
+  cursor: not-allowed;
+}
+.jvo-calendar .rdp-booked .rdp-day_button {
+  color: rgba(255, 200, 200, 0.6);
+  background: rgba(220, 80, 80, 0.18);
+  text-decoration: line-through;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

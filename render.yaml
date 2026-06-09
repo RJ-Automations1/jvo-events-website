@@ -1,0 +1,21 @@
+# Render Blueprint — one Web Service that builds the Vite site and serves it
+# alongside the /api booking endpoint. Deploy via Render → New → Blueprint,
+# pointing at this repo, then set the two Deskworks env vars in the dashboard.
+services:
+  - type: web
+    name: jvo-events
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: DESKWORKS_API_KEY
+        sync: false
+      - key: DESKWORKS_BASE_URL
+        sync: false
+      - key: GOOGLE_CALENDAR_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
