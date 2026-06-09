@@ -22,10 +22,27 @@ const PACKAGES = [
   { id: "full-day", label: "Full Day", sub: "10 hours", price: "$1,300", start: "10:00" },
 ];
 
+const EVENT_TYPES = [
+  "Wedding / Reception",
+  "Private Celebration",
+  "Birthday",
+  "Game Night / Social",
+  "Corporate / Meeting",
+  "Other",
+];
+
 export default function BookingPage() {
   const [selected, setSelected] = useState<string>("");
   const [pkg, setPkg] = useState(PACKAGES[1]);
   const [bookedDates, setBookedDates] = useState<string[]>([]);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [guestCount, setGuestCount] = useState("");
+
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canContinue = Boolean(selected && name.trim() && emailValid);
 
   useReveal([selected]);
 
@@ -45,10 +62,28 @@ export default function BookingPage() {
   const selectedDate = selected ? fromYMD(selected) : undefined;
 
   const continueToBooking = () => {
-    if (!selected) return;
-    const url = deskworksBookingUrl(selected, pkg.start, "Outdoor Event Center Booking");
+    if (!canContinue) return;
+    const url = deskworksBookingUrl(selected, pkg.start, "Outdoor Event Center Booking", {
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      eventType,
+      guestCount: guestCount.trim(),
+    });
     window.open(url, "_blank", "noopener,noreferrer");
   };
+
+  const fieldStyle = {
+    width: "100%",
+    background: "rgba(255,255,255,0.04)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: "0.125rem",
+    padding: "0.7rem 0.85rem",
+    color: "#fff",
+    fontSize: "0.9rem",
+    fontFamily: "'Lato', sans-serif",
+    outline: "none",
+  } as const;
 
   const labelStyle = {
     display: "block",
@@ -177,16 +212,66 @@ export default function BookingPage() {
                 </div>
 
                 <div>
+                  <label style={labelStyle}>3 · Your Details</label>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Full name *"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      autoComplete="name"
+                      style={{ ...fieldStyle, gridColumn: "1 / -1" }}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email *"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
+                      style={fieldStyle}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      autoComplete="tel"
+                      style={fieldStyle}
+                    />
+                    <select
+                      value={eventType}
+                      onChange={(e) => setEventType(e.target.value)}
+                      style={{ ...fieldStyle, color: eventType ? "#fff" : "rgba(255,255,255,0.4)" }}
+                    >
+                      <option value="" style={{ color: "#000" }}>Event type</option>
+                      {EVENT_TYPES.map((t) => (
+                        <option key={t} value={t} style={{ color: "#000" }}>{t}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="Guest count"
+                      value={guestCount}
+                      onChange={(e) => setGuestCount(e.target.value)}
+                      style={fieldStyle}
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <button
                     type="button"
                     onClick={continueToBooking}
-                    disabled={!selected}
+                    disabled={!canContinue}
                     className="btn-white w-full text-center"
-                    style={{ display: "block", cursor: selected ? "pointer" : "not-allowed", opacity: selected ? 1 : 0.5 }}
+                    style={{ display: "block", cursor: canContinue ? "pointer" : "not-allowed", opacity: canContinue ? 1 : 0.5 }}
                   >
-                    {selected
-                      ? `Continue to Booking — ${fromYMD(selected).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
-                      : "Select a date to continue"}
+                    {!selected
+                      ? "Select a date to continue"
+                      : !name.trim() || !emailValid
+                      ? "Add your name & email to continue"
+                      : `Continue to Payment — ${fromYMD(selected).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`}
                   </button>
                   <p className="text-white/25 text-xs text-center mt-4" style={{ fontFamily: "'Lato', sans-serif" }}>
                     You'll confirm your booking and pay the $150 deposit securely on our
