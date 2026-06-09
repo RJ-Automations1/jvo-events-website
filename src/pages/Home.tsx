@@ -229,6 +229,108 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Corporate events — video background */}
+      <section className="relative overflow-hidden" style={{ minHeight: "640px" }}>
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={VIDEO_POSTER.cookup}
+        >
+          <source src={VIDEO.cookupBg} type="video/mp4" />
+        </video>
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(8,8,8,0.78) 0%, rgba(8,8,8,0.62) 45%, rgba(8,8,8,0.85) 100%)",
+          }}
+        />
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="grid gap-12 lg:grid-cols-2 items-center">
+            <div className="reveal">
+              <p
+                className="text-white/55 text-xs tracking-[0.3em] uppercase mb-4"
+                style={{ fontFamily: "'Lato', sans-serif" }}
+              >
+                Corporate Events
+              </p>
+              <h2
+                className="text-white text-4xl sm:text-5xl font-bold leading-[1.1]"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Host Your
+                <br />
+                Corporate Event
+              </h2>
+              <div className="accent-divider mt-6" />
+              <p
+                className="text-white/70 text-base sm:text-lg leading-relaxed mt-6 max-w-lg"
+                style={{ fontFamily: "'Lato', sans-serif" }}
+              >
+                Meetings, mixers, team gatherings, product launches, and company
+                celebrations — JVO gives your business a polished, flexible space with
+                room to impress. Bring your own catering and vendors, or keep it simple.
+              </p>
+              <Link to="/book" className="btn-white mt-9 inline-block">
+                Host Your Event
+              </Link>
+            </div>
+
+            {/* Pricing card */}
+            <div
+              className="reveal lg:ml-auto w-full max-w-md p-8"
+              style={{
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(8,8,8,0.45)",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              <div
+                className="text-white/50 text-xs tracking-[0.25em] uppercase mb-6"
+                style={{ fontFamily: "'Lato', sans-serif" }}
+              >
+                Corporate Packages
+              </div>
+              {[
+                { label: "Half Day", sub: "5 hours", value: "$800" },
+                { label: "Full Day", sub: "10 hours", value: "$1,300" },
+                { label: "Deposit to Reserve", sub: "Applied to your total", value: "$150" },
+              ].map((p) => (
+                <div
+                  key={p.label}
+                  className="flex items-center justify-between py-4"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.10)" }}
+                >
+                  <div>
+                    <div
+                      className="text-white text-base font-bold"
+                      style={{ fontFamily: "'Playfair Display', serif" }}
+                    >
+                      {p.label}
+                    </div>
+                    <div
+                      className="text-white/40 text-xs tracking-wide uppercase mt-0.5"
+                      style={{ fontFamily: "'Lato', sans-serif" }}
+                    >
+                      {p.sub}
+                    </div>
+                  </div>
+                  <div
+                    className="text-white text-xl font-bold"
+                    style={{ fontFamily: "'Lato', sans-serif" }}
+                  >
+                    {p.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Pricing teaser */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">

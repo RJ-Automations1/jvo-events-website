@@ -27,6 +27,7 @@ export const VIDEO = {
   cookup: "/manus-storage/video/cookup.mp4",
   testimonyMain: "/manus-storage/video/testimony-main.mp4",
   testimonyRoss: "/manus-storage/video/testimony-ross.mp4",
+  cookupBg: "/manus-storage/video/cookup-bg.mp4",
 };
 
 // Posters (still frames extracted from the videos) for each clip.
