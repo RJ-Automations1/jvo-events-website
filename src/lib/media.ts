@@ -12,7 +12,7 @@ export const HERO_IMAGE = "/manus-storage/DSC00304-HDR.jpg";
  * (muted, then unmutes on the visitor's first interaction), falling back to
  * HERO_IMAGE as the poster until it loads.
  */
-export const HERO_VIDEO = "/manus-storage/video/cookup.mp4";
+export const HERO_VIDEO = "/manus-storage/video/cookup-hero.mp4";
 
 // Secondary hero used on interior page headers.
 export const PAGE_HERO_IMAGE = "/manus-storage/DSC00327-HDR.jpg";

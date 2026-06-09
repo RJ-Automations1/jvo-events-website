@@ -43,6 +43,7 @@ export default function Home() {
           muted
           loop
           playsInline
+          preload="auto"
           poster={HERO_IMAGE}
         >
           <source src={HERO_VIDEO} type="video/mp4" />
