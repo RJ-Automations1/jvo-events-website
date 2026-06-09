@@ -28,9 +28,14 @@ app.use((req, res, next) => {
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
+// Small in-memory cache so repeated page loads are instant and we don't hit the
+// calendar/Deskworks APIs on every request. Keyed by from|to, 5-minute TTL.
+const availabilityCache = new Map();
+const AVAIL_TTL_MS = 5 * 60 * 1000;
+
 /**
- * Availability — returns booked dates (YYYY-MM-DD) from the Google Calendar so
- * the date picker can grey them out. Defaults to a ~13-month window.
+ * Availability — returns booked dates (YYYY-MM-DD) from Google Calendar +
+ * Deskworks so the date picker can grey them out. Defaults to a ~13-month window.
  */
 app.get("/api/availability", async (req, res) => {
   try {
@@ -41,6 +46,12 @@ app.get("/api/availability", async (req, res) => {
       new Date(today.getFullYear() + 1, today.getMonth() + 1, 1)
         .toISOString()
         .slice(0, 10);
+
+    const cacheKey = `${from}|${to}`;
+    const cached = availabilityCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < AVAIL_TTL_MS) {
+      return res.json(cached.payload);
+    }
     // Combine both sources — a date is blocked if taken in Google Calendar OR Deskworks.
     const [gcal, dw] = await Promise.allSettled([
       getBookedDates(from, to),
@@ -54,7 +65,7 @@ app.get("/api/availability", async (req, res) => {
     const configured =
       (gcal.status === "fulfilled" && gcal.value.configured) ||
       (dw.status === "fulfilled" && dw.value.configured);
-    return res.json({
+    const payload = {
       ok: true,
       configured,
       bookedDates: [...set].sort(),
@@ -62,7 +73,9 @@ app.get("/api/availability", async (req, res) => {
         googleCalendar: gcal.status === "fulfilled" && gcal.value.configured,
         deskworks: dw.status === "fulfilled" && dw.value.configured,
       },
-    });
+    };
+    availabilityCache.set(cacheKey, { at: Date.now(), payload });
+    return res.json(payload);
   } catch (err) {
     console.error("[/api/availability] failed:", err);
     // Fail open: an availability outage shouldn't block bookings entirely.

@@ -41,14 +41,23 @@ function weekdayOf(ymd) {
 export async function getDeskworksBookedDates(from, to) {
   if (!KEY || !BASE) return { configured: false, bookedDates: [] };
   const url = `${BASE}/api/v1/centers/${CENTER}/reservations?from=${from}&to=${to}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${KEY}`,
-      Accept: "application/json",
-      "User-Agent":
-        "Mozilla/5.0 (compatible; JVOEventsBot/1.0; +https://jvoevents.com)",
-    },
-  });
+  // Don't let a slow/blocked Deskworks request hang the availability endpoint.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  let res;
+  try {
+    res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        Authorization: `Bearer ${KEY}`,
+        Accept: "application/json",
+        "User-Agent":
+          "Mozilla/5.0 (compatible; JVOEventsBot/1.0; +https://jvoevents.com)",
+      },
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`Deskworks availability responded ${res.status}: ${body.slice(0, 120)}`);
