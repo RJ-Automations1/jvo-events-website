@@ -48,7 +48,9 @@ app.get("/api/availability", async (req, res) => {
     ]);
     const set = new Set();
     if (gcal.status === "fulfilled") gcal.value.bookedDates.forEach((d) => set.add(d));
+    else console.error("[availability] google calendar failed:", gcal.reason?.message);
     if (dw.status === "fulfilled") dw.value.bookedDates.forEach((d) => set.add(d));
+    else console.error("[availability] deskworks failed:", dw.reason?.message);
     const configured =
       (gcal.status === "fulfilled" && gcal.value.configured) ||
       (dw.status === "fulfilled" && dw.value.configured);

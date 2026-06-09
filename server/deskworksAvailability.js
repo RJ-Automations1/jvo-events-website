@@ -41,8 +41,18 @@ function weekdayOf(ymd) {
 export async function getDeskworksBookedDates(from, to) {
   if (!KEY || !BASE) return { configured: false, bookedDates: [] };
   const url = `${BASE}/api/v1/centers/${CENTER}/reservations?from=${from}&to=${to}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${KEY}` } });
-  if (!res.ok) throw new Error(`Deskworks availability responded ${res.status}`);
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${KEY}`,
+      Accept: "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (compatible; JVOEventsBot/1.0; +https://jvoevents.com)",
+    },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Deskworks availability responded ${res.status}: ${body.slice(0, 120)}`);
+  }
   const data = await res.json();
   const group = Array.isArray(data) ? data.find((g) => String(g.id) === String(UNIT)) : null;
   const unit = group?.reservationUnits?.find((u) => String(u.id) === String(UNIT)) || group?.reservationUnits?.[0];
