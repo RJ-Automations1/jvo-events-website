@@ -3,38 +3,50 @@ import { useEffect, type RefObject } from "react";
 /**
  * Reliable muted autoplay + "sound on first interaction".
  *
- * Two things browsers (esp. Safari) get strict about:
- *  1. Autoplay only works if the video is *actually* muted. React doesn't always
- *     set the `muted` DOM property from the JSX attribute, so we set it on the
- *     element directly and kick off play().
- *  2. We then unmute on the visitor's first GENUINE interaction — a tap, click,
- *     or key press. We deliberately do NOT use mousemove/scroll: those fire the
- *     instant the page loads, don't count as a user gesture for audio, and would
- *     just get the video blocked and stuck on its poster.
+ * Browsers (and Safari especially) forbid audio until the visitor performs a
+ * real gesture, so there is no way to have sound literally before any
+ * interaction. What we do:
+ *   1. Force the `muted` DOM property + play() so muted autoplay actually runs
+ *      (React doesn't reliably set the muted property from the JSX attribute).
+ *   2. On the visitor's first genuine gesture — tap, click, or key — unmute and
+ *      keep playing. If a particular attempt is blocked, we revert to muted and
+ *      keep listening, so the video never gets stuck/paused on its poster.
  */
 export function useUnmuteOnInteraction(ref: RefObject<HTMLVideoElement>) {
   useEffect(() => {
     const v = ref.current;
-    if (v) {
-      // Guarantee muted autoplay regardless of how React rendered the attribute.
-      v.muted = true;
-      v.defaultMuted = true;
-      const p = v.play();
-      if (p && typeof p.catch === "function") p.catch(() => {});
-    }
+    if (!v) return;
+
+    // Guarantee muted autoplay regardless of how React rendered the attribute.
+    v.muted = true;
+    v.defaultMuted = true;
+    v.play().catch(() => {});
 
     let done = false;
-    const unmute = () => {
+    const tryUnmute = () => {
       if (done) return;
       const vid = ref.current;
       if (!vid) return;
-      done = true;
       vid.muted = false;
       vid.volume = 1;
-      vid.play().catch(() => {});
-      cleanup();
+      const p = vid.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => {
+          done = true;
+          cleanup();
+        }).catch(() => {
+          // Blocked (gesture not accepted) — revert so playback never stalls.
+          vid.muted = true;
+          vid.play().catch(() => {});
+        });
+      } else {
+        done = true;
+        cleanup();
+      }
     };
-    // Only real user-activation gestures — these won't fire spuriously on load.
+
+    // Discrete, genuine user-activation gestures only — these don't fire on load
+    // and won't repeat-toggle the way scroll/mousemove would.
     const events: (keyof WindowEventMap)[] = [
       "pointerdown",
       "touchstart",
@@ -42,9 +54,9 @@ export function useUnmuteOnInteraction(ref: RefObject<HTMLVideoElement>) {
       "keydown",
     ];
     const cleanup = () =>
-      events.forEach((e) => window.removeEventListener(e, unmute));
+      events.forEach((e) => window.removeEventListener(e, tryUnmute));
     events.forEach((e) =>
-      window.addEventListener(e, unmute, { once: true, passive: true })
+      window.addEventListener(e, tryUnmute, { passive: true })
     );
     return cleanup;
   }, [ref]);
