@@ -56,8 +56,8 @@ export default function About() {
           <div className="grid gap-12 lg:grid-cols-2 items-center">
             <div className="reveal overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
               <img
-                src="/manus-storage/DSC00277-HDR.jpg"
-                alt="The walkway and grounds at JVO Events"
+                src="/manus-storage/people-ribbon.jpg"
+                alt="JVO Events ribbon-cutting celebration with the owners and community"
                 loading="lazy"
                 className="w-full h-full object-cover"
                 style={{ minHeight: "340px" }}

@@ -4,6 +4,7 @@ import Home from "@/pages/Home";
 import Gallery from "@/pages/Gallery";
 import About from "@/pages/About";
 import Contact from "@/pages/Contact";
+import Corporate from "@/pages/Corporate";
 import Testimonials from "@/pages/Testimonials";
 import Book from "@/pages/Book";
 import NotFound from "@/pages/NotFound";
@@ -24,6 +25,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/gallery" element={<Gallery />} />
+        <Route path="/corporate" element={<Corporate />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/testimonials" element={<Testimonials />} />

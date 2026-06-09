@@ -8,17 +8,17 @@ const highlights = [
   {
     title: "Weddings & Receptions",
     body: "A refined backdrop for your ceremony and celebration, with room to make the day entirely your own.",
-    img: "/manus-storage/DSC00352-HDR.jpg",
+    img: "/manus-storage/wedding-couple.jpg",
   },
   {
     title: "Private Celebrations",
     body: "Birthdays, graduations, and milestones — an intimate, polished setting for the people who matter.",
-    img: "/manus-storage/people-tables.jpg",
+    img: "/manus-storage/people-smile.jpg",
   },
   {
     title: "Game Nights & Socials",
     body: "Bring everyone together for game nights, mixers, and good food in a space built for fun.",
-    img: "/manus-storage/people-games.jpg",
+    img: "/manus-storage/people-jenga.jpg",
   },
 ];
 

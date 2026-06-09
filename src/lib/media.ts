@@ -4,8 +4,8 @@
  * the matching URL.
  */
 
-// Primary hero — the long interior pavilion view.
-export const HERO_IMAGE = "/manus-storage/DSC00352-HDR.jpg";
+// Primary hero — the wide deck view (matches the look the owner wanted).
+export const HERO_IMAGE = "/manus-storage/DSC00304-HDR.jpg";
 
 /**
  * Optional hero video background. Drop a file at this path (e.g. the NAS space

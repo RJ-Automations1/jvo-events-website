@@ -63,40 +63,6 @@ export default function Testimonials() {
         </div>
       </section>
 
-      {/* Featured (square) testimonial */}
-      <section style={{ background: "#0b0b0b", padding: "80px 0" }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-2 items-center">
-            <div
-              className="reveal overflow-hidden"
-              style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000" }}
-            >
-              <video
-                controls
-                playsInline
-                preload="metadata"
-                poster={VIDEO_POSTER.testimonyRoss}
-                className="w-full"
-                style={{ display: "block", aspectRatio: "1 / 1", background: "#000" }}
-              >
-                <source src={VIDEO.testimonyRoss} type="video/mp4" />
-              </video>
-            </div>
-            <div className="reveal">
-              <div className="text-white/20 text-6xl leading-none mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-                "
-              </div>
-              <p className="text-white/70 text-xl sm:text-2xl leading-relaxed" style={{ fontFamily: "'Playfair Display', serif" }}>
-                A space that made our event feel effortless — and unforgettable.
-              </p>
-              <div className="text-white/45 text-sm tracking-widest uppercase mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
-                — Ross
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Event reels */}
       <section style={{ background: "#080808", padding: "80px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
