@@ -28,9 +28,9 @@ export const VIDEO = {
   testimonyMain: "/manus-storage/video/testimony-main.mp4",
   testimonyRoss: "/manus-storage/video/testimony-ross.mp4",
   cookupBg: "/manus-storage/video/cookup-bg.mp4",
-  voiceOlder: "/manus-storage/video/testimonial-older.mp4",
-  voiceGentleman: "/manus-storage/video/testimonial-gentleman.mp4",
-  voiceLady: "/manus-storage/video/testimonial-lady.mp4",
+  voiceGreen: "/manus-storage/video/testimonial-green.mp4",
+  voiceYellow: "/manus-storage/video/testimonial-yellow.mp4",
+  voiceSuit: "/manus-storage/video/testimonial-suit.mp4",
   wedding: "/manus-storage/video/wedding.mp4",
 };
 
@@ -41,9 +41,9 @@ export const VIDEO_POSTER = {
   cookup: "/manus-storage/video/cookup.jpg",
   testimonyMain: "/manus-storage/video/testimony-main.jpg",
   testimonyRoss: "/manus-storage/video/testimony-ross.jpg",
-  voiceOlder: "/manus-storage/video/testimonial-older.jpg",
-  voiceGentleman: "/manus-storage/video/testimonial-gentleman.jpg",
-  voiceLady: "/manus-storage/video/testimonial-lady.jpg",
+  voiceGreen: "/manus-storage/video/testimonial-green.jpg",
+  voiceYellow: "/manus-storage/video/testimonial-yellow.jpg",
+  voiceSuit: "/manus-storage/video/testimonial-suit.jpg",
   wedding: "/manus-storage/video/wedding.jpg",
 };
 
