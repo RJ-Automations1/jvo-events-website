@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDeskworksReservation } from "./server/deskworks.js";
 import { getBookedDates } from "./server/googleCalendar.js";
+import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -40,8 +41,26 @@ app.get("/api/availability", async (req, res) => {
       new Date(today.getFullYear() + 1, today.getMonth() + 1, 1)
         .toISOString()
         .slice(0, 10);
-    const { configured, bookedDates } = await getBookedDates(from, to);
-    return res.json({ ok: true, configured, bookedDates });
+    // Combine both sources — a date is blocked if taken in Google Calendar OR Deskworks.
+    const [gcal, dw] = await Promise.allSettled([
+      getBookedDates(from, to),
+      getDeskworksBookedDates(from, to),
+    ]);
+    const set = new Set();
+    if (gcal.status === "fulfilled") gcal.value.bookedDates.forEach((d) => set.add(d));
+    if (dw.status === "fulfilled") dw.value.bookedDates.forEach((d) => set.add(d));
+    const configured =
+      (gcal.status === "fulfilled" && gcal.value.configured) ||
+      (dw.status === "fulfilled" && dw.value.configured);
+    return res.json({
+      ok: true,
+      configured,
+      bookedDates: [...set].sort(),
+      sources: {
+        googleCalendar: gcal.status === "fulfilled" && gcal.value.configured,
+        deskworks: dw.status === "fulfilled" && dw.value.configured,
+      },
+    });
   } catch (err) {
     console.error("[/api/availability] failed:", err);
     // Fail open: an availability outage shouldn't block bookings entirely.

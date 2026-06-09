@@ -19,3 +19,11 @@ services:
         sync: false
       - key: GOOGLE_SERVICE_ACCOUNT_JSON
         sync: false
+      - key: DESKWORKS_CENTER_ID
+        value: "6"
+      - key: DESKWORKS_UNIT_ID
+        value: "32"
+      - key: DESKWORKS_IGNORE_WEEKDAYS
+        value: "6"
+      - key: DESKWORKS_BASE_URL
+        sync: false

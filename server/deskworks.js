@@ -49,35 +49,11 @@ export async function createDeskworksReservation(booking) {
     notes: booking.message || null,
   };
 
-  if (!configured) {
-    // No credentials yet → behave as a stub so the site is fully testable.
-    console.warn(
-      "[deskworks] DESKWORKS_API_KEY / DESKWORKS_BASE_URL not set — returning STUB success.",
-      reservation
-    );
-    return { ok: true, stub: true };
-  }
-
-  // TODO: Replace with the real Deskworks create-reservation request once the
-  // endpoint + payload shape are known. Example shape (adjust path/headers/body):
-  //
-  // const res = await fetch(`${BASE_URL}/reservations`, {
-  //   method: "POST",
-  //   headers: {
-  //     "Content-Type": "application/json",
-  //     Authorization: `Bearer ${API_KEY}`,
-  //   },
-  //   body: JSON.stringify(reservation),
-  // });
-  // if (!res.ok) {
-  //   const text = await res.text().catch(() => "");
-  //   throw new Error(`Deskworks responded ${res.status}: ${text}`);
-  // }
-  // const data = await res.json();
-  // return { ok: true, reference: data.id };
-
-  throw new Error(
-    "Deskworks credentials are set but the API call is not wired yet. " +
-      "Fill in the TODO block in server/deskworks.js with the real endpoint."
-  );
+  // Reservation creation via the API is NOT used — Deskworks only issues
+  // read-only catalog tokens, so the website hands customers off to the
+  // Deskworks new-reservation page to create the real booking + payment.
+  // This endpoint just records the inquiry; treat every call as a lead.
+  void configured;
+  console.log("[deskworks] booking inquiry (handoff flow):", reservation);
+  return { ok: true, stub: true };
 }
