@@ -11,6 +11,19 @@ const PORT = process.env.PORT || 8787;
 
 app.use(express.json());
 
+/**
+ * Canonical host: redirect www.jvoevents.com → jvoevents.com (one clean URL,
+ * better for SEO). Only affects the www host; the apex and onrender URLs pass
+ * through untouched.
+ */
+app.use((req, res, next) => {
+  const host = req.headers.host || "";
+  if (host.toLowerCase().startsWith("www.")) {
+    return res.redirect(301, `https://${host.slice(4)}${req.originalUrl}`);
+  }
+  next();
+});
+
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
