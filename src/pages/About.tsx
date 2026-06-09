@@ -76,7 +76,7 @@ export default function About() {
                 style={{ fontFamily: "'Lato', sans-serif" }}
               >
                 <p>
-                  JVO Events is a Jonesboro, Arkansas venue built around a simple idea: your
+                  JVO Events is a Jonesboro, Georgia venue built around a simple idea: your
                   celebration should feel effortless. We provide a clean, elegant, and flexible
                   space — and the freedom to make it your own.
                 </p>

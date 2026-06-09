@@ -196,7 +196,7 @@ export default function BookingPage() {
                     info@jvoevents.com
                   </a>
                   <div className="text-white/50 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
-                    Jonesboro, Arkansas
+                    Jonesboro, Georgia
                   </div>
                 </div>
               </div>

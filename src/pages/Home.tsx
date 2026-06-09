@@ -55,7 +55,7 @@ export default function Home() {
               className="text-white/50 text-xs sm:text-sm tracking-[0.3em] uppercase mb-4"
               style={{ fontFamily: "'Lato', sans-serif" }}
             >
-              Jonesboro, Arkansas
+              Jonesboro, Georgia
             </p>
             <h1
               className="text-white text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.05]"

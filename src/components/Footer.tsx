@@ -21,7 +21,7 @@ export default function Footer() {
               style={{ fontFamily: "'Lato', sans-serif" }}
             >
               An elegant event space for weddings, celebrations, and gatherings in
-              Jonesboro, Arkansas.
+              Jonesboro, Georgia.
             </p>
           </div>
 
@@ -81,7 +81,7 @@ export default function Footer() {
                   info@jvoevents.com
                 </a>
               </li>
-              <li className="text-white/50 text-sm">Jonesboro, Arkansas</li>
+              <li className="text-white/50 text-sm">Jonesboro, Georgia</li>
             </ul>
           </div>
         </div>
