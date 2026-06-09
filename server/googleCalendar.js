@@ -48,23 +48,38 @@ async function getCalendarClient() {
   return calendarClientPromise;
 }
 
-/** Expand an event into the list of YYYY-MM-DD strings it occupies. */
+/** Add `n` days to a YYYY-MM-DD string, treating it as a plain calendar date. */
+function addDays(ymd, n) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
+ * Expand an event into the list of YYYY-MM-DD strings it occupies, using the
+ * calendar's LOCAL dates (the date prefix of the timestamp), so an evening
+ * Eastern-time event doesn't spill into the next UTC day.
+ */
 function datesForEvent(ev) {
-  // All-day events use `date`; timed events use `dateTime`.
-  const startStr = ev.start?.date || ev.start?.dateTime;
-  const endStr = ev.end?.date || ev.end?.dateTime;
-  if (!startStr) return [];
-  const start = new Date(startStr);
-  // For all-day events Google's `end.date` is exclusive; for timed events use the day.
-  const end = endStr ? new Date(endStr) : new Date(startStr);
+  let startYmd;
+  let lastYmd;
+  if (ev.start?.date) {
+    // All-day event: end.date is exclusive, so the last occupied day is end - 1.
+    startYmd = ev.start.date;
+    lastYmd = addDays(ev.end?.date || addDays(startYmd, 1), -1);
+  } else if (ev.start?.dateTime) {
+    // Timed event: take the local date portion of each timestamp.
+    startYmd = ev.start.dateTime.slice(0, 10);
+    lastYmd = (ev.end?.dateTime || ev.start.dateTime).slice(0, 10);
+  } else {
+    return [];
+  }
   const out = [];
-  const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-  const last = ev.end?.date
-    ? new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()) - 86400000)
-    : new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
-  while (d <= last) {
-    out.push(d.toISOString().slice(0, 10));
-    d.setUTCDate(d.getUTCDate() + 1);
+  let cur = startYmd;
+  for (let guard = 0; cur <= lastYmd && guard < 366; guard++) {
+    out.push(cur);
+    cur = addDays(cur, 1);
   }
   return out;
 }
