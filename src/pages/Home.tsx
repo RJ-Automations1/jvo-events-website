@@ -6,23 +6,62 @@ import { useReveal } from "@/lib/useReveal";
 import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
 import { VIDEO } from "@/lib/media";
 
-/** Every kind of event hosted at JVO — shown in the "What we host" grid. */
-const eventTypes = [
-  "Birthday Parties",
-  "Game Nights & Socials",
-  "Baby Showers",
-  "Gender Reveals",
-  "Weddings",
-  "Family Reunions",
-  "Graduation Celebrations",
-  "Corporate Events",
-  "Pop-Up Shops & Vendors",
-  "Anniversary Celebrations",
-  "Taste Testings",
-  "Quinceañeras",
-  "Retirement Parties",
-  "Holiday Parties",
-  "Networking Events",
+/**
+ * More of what JVO hosts — shown as picture cards beneath the featured highlights.
+ * Photos are real venue moments where we have them; the rest are styled to match
+ * the open-air pavilion look.
+ */
+const hostedEvents = [
+  {
+    title: "Family Reunions",
+    body: "Bring every generation together for a warm, memorable reunion with room to eat, play, and reconnect.",
+    img: "/manus-storage/event-family-reunion.jpg",
+  },
+  {
+    title: "Graduation Celebrations",
+    body: "Honor the grad with a celebration as big as the achievement — decorate, gather, and toast to what's next.",
+    img: "/manus-storage/event-graduation.jpg",
+  },
+  {
+    title: "Corporate Events",
+    body: "A polished setting for mixers, meetings, and team gatherings, with the flexibility your agenda needs.",
+    img: "/manus-storage/event-corporate.jpg",
+  },
+  {
+    title: "Pop-Up Shops & Vendors",
+    body: "Host a pop-up market or vendor showcase with space for tables, browsing, and a steady flow of guests.",
+    img: "/manus-storage/event-popup-vendors.jpg",
+  },
+  {
+    title: "Anniversary Celebrations",
+    body: "Mark the milestone in style with an elegant, intimate setting made for the people who matter most.",
+    img: "/manus-storage/outdoor-decorated.jpg",
+  },
+  {
+    title: "Taste Testings",
+    body: "Showcase your menu or sample new flavors in a clean, inviting space built for food and conversation.",
+    img: "/manus-storage/event-taste-testing.jpg",
+  },
+  {
+    title: "Quinceañeras",
+    body: "Celebrate her big day with a beautiful, photo-ready space to dance, dine, and make lasting memories.",
+    img: "/manus-storage/event-quinceanera.jpg",
+  },
+  {
+    title: "Retirement Parties",
+    body: "Send them off in style with a relaxed, celebratory space to gather friends, family, and colleagues.",
+    img: "/manus-storage/event-retirement.jpg",
+  },
+  {
+    title: "Holiday Parties",
+    body: "Gather your team or your loved ones for a festive holiday celebration under warm, twinkling lights.",
+    img: "/manus-storage/event-holiday.jpg",
+  },
+  {
+    title: "Networking Events",
+    body: "Connect over good food and great company in a comfortable, professional setting made for mingling.",
+    img: "/manus-storage/people-food.jpg",
+  },
 ];
 
 const highlights = [
@@ -195,28 +234,50 @@ export default function Home() {
         </div>
       </section>
 
-      {/* What we host — full list of event types */}
+      {/* What we host — picture cards for every kind of event */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="reveal text-center mb-12">
             <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-              All The Things We Do
+              All The Things We Host
             </p>
             <h2 className="text-white text-3xl sm:text-4xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
               What we host
             </h2>
             <div className="accent-divider mx-auto mt-5" />
           </div>
-          <div className="reveal grid grid-cols-2 sm:grid-cols-3 gap-px" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            {eventTypes.map((e) => (
+          <div className="grid gap-8 md:grid-cols-3">
+            {hostedEvents.map((h) => (
               <div
-                key={e}
-                className="px-5 py-5 text-center"
-                style={{ background: "#080808" }}
+                key={h.title}
+                className="reveal group overflow-hidden"
+                style={{
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.02)",
+                }}
               >
-                <span className="text-white/70 text-sm sm:text-base" style={{ fontFamily: "'Lato', sans-serif" }}>
-                  {e}
-                </span>
+                <div className="h-56 overflow-hidden">
+                  <img
+                    src={h.img}
+                    alt={h.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
+                <div className="p-8">
+                  <h3
+                    className="text-white text-xl font-bold mb-3"
+                    style={{ fontFamily: "'Playfair Display', serif" }}
+                  >
+                    {h.title}
+                  </h3>
+                  <p
+                    className="text-white/45 text-sm leading-relaxed"
+                    style={{ fontFamily: "'Lato', sans-serif" }}
+                  >
+                    {h.body}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
