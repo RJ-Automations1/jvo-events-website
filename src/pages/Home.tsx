@@ -193,61 +193,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Highlights + pricing, together up top */}
+      {/* What we host — every event as a picture card, flowing right under the
+          intro so the highlights and the full list read as one continuous set. */}
       <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 md:grid-cols-3">
-            {highlights.map((h) => (
-              <div
-                key={h.title}
-                className="reveal group overflow-hidden"
-                style={{
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(255,255,255,0.02)",
-                }}
-              >
-                <div className="h-56 overflow-hidden">
-                  <img
-                    src={h.img}
-                    alt={h.title}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-                </div>
-                <div className="p-8">
-                  <h3
-                    className="text-white text-xl font-bold mb-3"
-                    style={{ fontFamily: "'Playfair Display', serif" }}
-                  >
-                    {h.title}
-                  </h3>
-                  <p
-                    className="text-white/45 text-sm leading-relaxed"
-                    style={{ fontFamily: "'Lato', sans-serif" }}
-                  >
-                    {h.body}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* What we host — picture cards for every kind of event */}
-      <section style={{ background: "#080808", padding: "90px 0" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="reveal text-center mb-12">
-            <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-              All The Things We Host
-            </p>
-            <h2 className="text-white text-3xl sm:text-4xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-              What we host
-            </h2>
-            <div className="accent-divider mx-auto mt-5" />
-          </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {hostedEvents.map((h) => (
+            {[...highlights, ...hostedEvents].map((h) => (
               <div
                 key={h.title}
                 className="reveal group overflow-hidden"

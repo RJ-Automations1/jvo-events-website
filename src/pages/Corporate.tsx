@@ -96,7 +96,7 @@ export default function Corporate() {
             <div className="accent-divider mt-6" />
             <p className="text-white/70 text-base sm:text-lg leading-relaxed mt-6 max-w-xl" style={{ fontFamily: "'Lato', sans-serif" }}>
               Reserve a half or full day at JVO. A refundable security deposit secures your
-              date — and you can add weather assurance for extra peace of mind.
+              date — and you can add weather insurance for extra peace of mind.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-9">
               <Link to="/book" className="btn-white">
@@ -163,7 +163,7 @@ export default function Corporate() {
             </p>
           </div>
 
-          {/* Weather assurance add-on */}
+          {/* Weather insurance add-on */}
           <div
             className="reveal max-w-3xl mx-auto mt-5 p-8"
             style={{ border: "1px solid rgba(255,255,255,0.16)", background: "rgba(255,255,255,0.045)" }}
@@ -174,14 +174,14 @@ export default function Corporate() {
                   Optional Add-On
                 </span>
                 <span className="text-white text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-                  Weather Assurance
+                  Weather Insurance
                 </span>
               </div>
               <div className="text-white text-3xl font-bold" style={{ fontFamily: "'Lato', sans-serif" }}>$99</div>
             </div>
             <div className="accent-divider mt-4" />
             <p className="text-white/55 text-sm sm:text-base leading-relaxed mt-5" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Weather assurance is an <span className="text-white font-semibold">optional</span> add-on. Add it to your booking and,
+              Weather insurance is an <span className="text-white font-semibold">optional</span> add-on. Add it to your booking and,
               in the event of inclement weather, cancel for a full refund or reschedule your
               event for another date.
             </p>
