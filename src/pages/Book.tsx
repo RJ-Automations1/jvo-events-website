@@ -6,19 +6,40 @@ import { useReveal } from "@/lib/useReveal";
 /** JotForm event-registration form (replaces the old calendar/Deskworks flow). */
 const JOTFORM_ID = "222155218269153";
 const JOTFORM_SRC = `https://form.jotform.com/${JOTFORM_ID}`;
+/** After the form is submitted, send the guest here to pay the $150 deposit. */
+const CHEDDARUP_DEPOSIT_URL =
+  "https://my.cheddarup.com/c/jvo-event-security-deposit/items";
 
 export default function BookingPage() {
   useReveal();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // JotForm posts "setHeight:<px>:<formId>" so the embed can grow to fit its
-  // content instead of showing an inner scrollbar. Resize the iframe to match.
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (typeof e.data !== "string" || !e.data.startsWith("setHeight")) return;
-      const height = Number(e.data.split(":")[1]);
-      if (iframeRef.current && height > 0) {
-        iframeRef.current.style.height = `${height}px`;
+      // Only trust messages coming from the JotForm iframe.
+      if (e.origin && !/jotform\.com/.test(e.origin)) return;
+
+      const data = e.data;
+
+      // 1) Auto-resize the iframe — JotForm posts "setHeight:<px>:<formId>".
+      if (typeof data === "string" && data.startsWith("setHeight")) {
+        const height = Number(data.split(":")[1]);
+        if (iframeRef.current && height > 0) {
+          iframeRef.current.style.height = `${height}px`;
+        }
+        return;
+      }
+
+      // 2) On a completed submission JotForm posts { action: 'submission-end' }.
+      //    Send the guest straight to Cheddar Up to pay the $150 deposit.
+      const action =
+        data && typeof data === "object"
+          ? (data as { action?: string }).action
+          : typeof data === "string" && data.includes("submission-end")
+          ? "submission-end"
+          : undefined;
+      if (action === "submission-end") {
+        window.location.href = CHEDDARUP_DEPOSIT_URL;
       }
     };
     window.addEventListener("message", onMessage);
@@ -57,7 +78,7 @@ export default function BookingPage() {
             <div className="accent-divider mx-auto mt-5" />
             <p className="text-white/50 text-base leading-relaxed mt-6 max-w-xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
               Tell us about your event in the quick form below — no account needed.
-              We'll confirm your date and walk you through the deposit.
+              When you submit, we'll take you straight to pay your $150 security deposit.
             </p>
           </div>
 
