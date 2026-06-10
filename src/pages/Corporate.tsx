@@ -159,7 +159,8 @@ export default function Corporate() {
               The $150 security deposit is separate and <span className="text-white/80 font-semibold">not included</span> in the
               Half Day ($800) or Full Day ($1,300) rate. It's due at the time of booking to reserve your date,
               and is fully refunded to you after your event as long as the space is returned clean with no damage
-              to the property.
+              to the property. If you cancel your event within <span className="text-white/80 font-semibold">30 days</span> of
+              the event date, the deposit is <span className="text-white/80 font-semibold">forfeited</span>.
             </p>
           </div>
 
@@ -185,6 +186,33 @@ export default function Corporate() {
               in the event of inclement weather, cancel for a full refund or reschedule your
               event for another date.
             </p>
+          </div>
+
+          {/* Balances & payment policy */}
+          <div
+            className="reveal max-w-3xl mx-auto mt-5 p-8"
+            style={{ border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.03)" }}
+          >
+            <div>
+              <span className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase block mb-1" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Payment Policy
+              </span>
+              <span className="text-white text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Balances &amp; Payment
+              </span>
+            </div>
+            <div className="accent-divider mt-4" />
+            <ul className="text-white/55 text-sm sm:text-base leading-relaxed mt-5 space-y-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+              <li>
+                Your full balance is due no later than <span className="text-white/80 font-semibold">14 days before</span> your
+                event. If the balance is not paid in full by then, the event will be
+                <span className="text-white/80 font-semibold"> canceled with no refund</span>.
+              </li>
+              <li>
+                If you book your event within <span className="text-white/80 font-semibold">14 days</span> of the event date, the
+                <span className="text-white/80 font-semibold"> full balance is required up front</span> at the time of booking.
+              </li>
+            </ul>
           </div>
 
           <div className="text-center mt-12">
