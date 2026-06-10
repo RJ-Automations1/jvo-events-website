@@ -16,11 +16,11 @@ export default function Corporate() {
     <div style={{ background: "#080808", minHeight: "100vh" }}>
       <Navbar />
 
-      {/* Image hero — the decorated outdoor space */}
+      {/* Image hero — the JVO covered pavilion space */}
       <section className="relative flex items-center overflow-hidden" style={{ minHeight: "70vh" }}>
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(/manus-storage/outdoor-decorated.jpg)` }}
+          style={{ backgroundImage: `url(/manus-storage/DSC00352-HDR.jpg)` }}
         />
         <div
           className="absolute inset-0"
