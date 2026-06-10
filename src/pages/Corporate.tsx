@@ -12,6 +12,50 @@ const packages = [
   { label: "Full Day", sub: "10 hours", value: "$1,300" },
 ];
 
+/** House rules — transcribed from the venue's posted Event Rules & Conditions sign. */
+const rules = [
+  {
+    title: "No loitering in parking lot",
+    body: "Guests must enter the venue upon arrival and may not congregate or linger in parking areas.",
+  },
+  {
+    title: "No access inside building including kitchen",
+    body: "Access is limited to designated rental areas only. Entry into any other part of the building is prohibited.",
+  },
+  {
+    title: "No confetti or popped balloons",
+    body: "Use of confetti or balloons that may pop is prohibited. Violations will result in loss of security deposit.",
+  },
+  {
+    title: "No animals unless pre-approved",
+    body: "No animals are permitted unless prior written approval is obtained.",
+  },
+  {
+    title: "Return space exactly how it was found",
+    body: "All decorations, trash, and event items must be removed. All furniture must be returned to its original placement.",
+  },
+  {
+    title: "Only pre-approved outside items & vendors",
+    body: "All outside items (tables, chairs, bounce houses, merchandise vendors, DJs, photo booths, food trucks, etc.) require prior written approval.",
+  },
+  {
+    title: "No selling alcohol without a city permit",
+    body: "Alcohol sales are prohibited unless a valid city permit and required documentation are provided.",
+  },
+  {
+    title: "Speakers must face Jonesboro Rd.",
+    body: "All sound equipment must be positioned to minimize noise impact on neighboring properties.",
+  },
+  {
+    title: "Adhere to DJ rules",
+    body: "All DJs must comply with venue-provided guidelines regarding volume, operating times, and equipment.",
+  },
+  {
+    title: "45 car limit in parking area",
+    body: "Parking is limited to 45 vehicles maximum.",
+  },
+];
+
 export default function Corporate() {
   useReveal();
   const heroRef = useRef<HTMLVideoElement>(null);
