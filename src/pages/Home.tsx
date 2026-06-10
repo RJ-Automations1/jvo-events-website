@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
 import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
-import { HERO_VIDEO, HERO_IMAGE, VIDEO, VIDEO_POSTER } from "@/lib/media";
+import { HERO_VIDEO, HERO_IMAGE } from "@/lib/media";
 
 /** Every kind of event hosted at JVO — shown in the "What we host" grid. */
 const eventTypes = [
@@ -32,14 +32,29 @@ const highlights = [
     img: "/manus-storage/wedding-couple.jpg",
   },
   {
-    title: "Private Celebrations",
-    body: "Birthdays, graduations, and milestones — an intimate, polished setting for the people who matter.",
-    img: "/manus-storage/people-celebration.jpg",
-  },
-  {
     title: "Game Nights & Socials",
     body: "Bring everyone together for game nights, mixers, and good food in a space built for fun.",
     img: "/manus-storage/people-jenga.jpg",
+  },
+  {
+    title: "Birthday Parties",
+    body: "From milestone birthdays to low-key celebrations, set the scene for the people who matter most.",
+    img: "/manus-storage/event-birthday.png",
+  },
+  {
+    title: "Gender Reveals",
+    body: "Share the big moment with family and friends in a bright, photo-ready space made for it.",
+    img: "/manus-storage/event-gender-reveal.png",
+  },
+  {
+    title: "Baby Showers",
+    body: "An intimate, polished setting to celebrate what's coming next, with room to decorate your way.",
+    img: "/manus-storage/event-baby-shower.png",
+  },
+  {
+    title: "Private Celebrations",
+    body: "Graduations, anniversaries, and milestones — a versatile space that shapes around your vision.",
+    img: "/manus-storage/people-food.jpg",
   },
 ];
 
@@ -86,11 +101,9 @@ export default function Home() {
               className="text-white text-5xl sm:text-6xl lg:text-7xl font-bold leading-[1.05]"
               style={{ fontFamily: "'Playfair Display', serif" }}
             >
-              Where Your
+              Create Your
               <br />
-              Moments Become
-              <br />
-              Memories
+              Vibe at JVO
             </h1>
             <div className="accent-divider mt-6" />
             <p
@@ -178,41 +191,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-
-          {/* Pricing — bumped up here, alongside the event highlights */}
-          <div className="mt-16">
-            <div className="reveal text-center mb-8">
-              <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-                Simple, Transparent Pricing
-              </p>
-              <h2 className="text-white text-3xl sm:text-4xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Book the time you need
-              </h2>
-              <div className="accent-divider mx-auto mt-5" />
-            </div>
-            <div className="reveal grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto">
-              {[
-                { label: "Half Day", sub: "5 hours", value: "$800" },
-                { label: "Full Day", sub: "10 hours", value: "$1,300" },
-                { label: "Deposit to Reserve", sub: "Applied to your total", value: "$150" },
-              ].map((p) => (
-                <div
-                  key={p.label}
-                  className="p-6 text-center"
-                  style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)" }}
-                >
-                  <div className="text-white text-3xl font-bold" style={{ fontFamily: "'Lato', sans-serif" }}>{p.value}</div>
-                  <div className="text-white text-base font-bold mt-2" style={{ fontFamily: "'Playfair Display', serif" }}>{p.label}</div>
-                  <div className="text-white/40 text-xs tracking-wide uppercase mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>{p.sub}</div>
-                </div>
-              ))}
-            </div>
-            <div className="text-center mt-10">
-              <Link to="/book" className="reveal btn-white inline-block">
-                Check Availability
-              </Link>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -265,108 +243,6 @@ export default function Home() {
             >
               An open canvas with warm wood, natural light, and room to bring your vision to life.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Corporate events — video background */}
-      <section className="relative overflow-hidden" style={{ minHeight: "640px" }}>
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          poster={VIDEO_POSTER.cookupBgOutdoor}
-        >
-          <source src={VIDEO.cookupBg} type="video/mp4" />
-        </video>
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(8,8,8,0.78) 0%, rgba(8,8,8,0.62) 45%, rgba(8,8,8,0.85) 100%)",
-          }}
-        />
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-          <div className="grid gap-12 lg:grid-cols-2 items-center">
-            <div className="reveal">
-              <p
-                className="text-white/55 text-xs tracking-[0.3em] uppercase mb-4"
-                style={{ fontFamily: "'Lato', sans-serif" }}
-              >
-                Corporate Events
-              </p>
-              <h2
-                className="text-white text-4xl sm:text-5xl font-bold leading-[1.1]"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                Host Your
-                <br />
-                Corporate Event
-              </h2>
-              <div className="accent-divider mt-6" />
-              <p
-                className="text-white/70 text-base sm:text-lg leading-relaxed mt-6 max-w-lg"
-                style={{ fontFamily: "'Lato', sans-serif" }}
-              >
-                Meetings, mixers, team gatherings, product launches, and company
-                celebrations — JVO gives your business a polished, flexible space with
-                room to impress. Bring your own catering and vendors, or keep it simple.
-              </p>
-              <Link to="/book" className="btn-white mt-9 inline-block">
-                Host Your Event
-              </Link>
-            </div>
-
-            {/* Pricing card */}
-            <div
-              className="reveal lg:ml-auto w-full max-w-md p-8"
-              style={{
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "rgba(8,8,8,0.45)",
-                backdropFilter: "blur(6px)",
-              }}
-            >
-              <div
-                className="text-white/50 text-xs tracking-[0.25em] uppercase mb-6"
-                style={{ fontFamily: "'Lato', sans-serif" }}
-              >
-                Corporate Packages
-              </div>
-              {[
-                { label: "Half Day", sub: "5 hours", value: "$800" },
-                { label: "Full Day", sub: "10 hours", value: "$1,300" },
-                { label: "Deposit to Reserve", sub: "Applied to your total", value: "$150" },
-              ].map((p) => (
-                <div
-                  key={p.label}
-                  className="flex items-center justify-between py-4"
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.10)" }}
-                >
-                  <div>
-                    <div
-                      className="text-white text-base font-bold"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
-                    >
-                      {p.label}
-                    </div>
-                    <div
-                      className="text-white/40 text-xs tracking-wide uppercase mt-0.5"
-                      style={{ fontFamily: "'Lato', sans-serif" }}
-                    >
-                      {p.sub}
-                    </div>
-                  </div>
-                  <div
-                    className="text-white text-xl font-bold"
-                    style={{ fontFamily: "'Lato', sans-serif" }}
-                  >
-                    {p.value}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
