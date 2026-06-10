@@ -8,11 +8,11 @@
 export const HERO_IMAGE = "/manus-storage/DSC00304-HDR.jpg";
 
 /**
- * Homepage hero video background — the edited Cook Up promo. Plays automatically
- * (muted, then unmutes on the visitor's first interaction), falling back to
- * HERO_IMAGE as the poster until it loads.
+ * Homepage hero video background — the outdoor pavilion walkthrough (the
+ * original hero). Small, silent, faststart loop; HERO_IMAGE is the poster
+ * until it loads.
  */
-export const HERO_VIDEO = "/manus-storage/video/cookup-hero.mp4";
+export const HERO_VIDEO = "/manus-storage/space-hero.mp4";
 
 // Secondary hero used on interior page headers.
 export const PAGE_HERO_IMAGE = "/manus-storage/DSC00327-HDR.jpg";
