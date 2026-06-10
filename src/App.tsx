@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Home from "@/pages/Home";
 import Gallery from "@/pages/Gallery";
-import About from "@/pages/About";
 import Contact from "@/pages/Contact";
 import Corporate from "@/pages/Corporate";
 import Testimonials from "@/pages/Testimonials";
@@ -27,7 +26,6 @@ export default function App() {
         <Route path="/gallery" element={<Gallery />} />
         <Route path="/events" element={<Corporate />} />
         <Route path="/corporate" element={<Corporate />} />
-        <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/book" element={<Book />} />

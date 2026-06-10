@@ -371,6 +371,50 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Our story */}
+      <section style={{ background: "#080808", padding: "90px 0" }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-12 lg:grid-cols-2 items-center">
+            <div className="reveal overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+              <img
+                src="/manus-storage/people-ribbon.jpg"
+                alt="JVO Events ribbon-cutting celebration with the owners and community"
+                loading="lazy"
+                className="w-full h-full object-cover"
+                style={{ minHeight: "340px" }}
+              />
+            </div>
+            <div>
+              <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Who We Are
+              </p>
+              <h2
+                className="reveal text-white text-3xl sm:text-4xl font-bold leading-tight"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Our story
+              </h2>
+              <div className="reveal accent-divider mt-5" />
+              <div
+                className="reveal text-white/55 text-base sm:text-lg leading-relaxed mt-7 space-y-5"
+                style={{ fontFamily: "'Lato', sans-serif" }}
+              >
+                <p>
+                  JVO Events is a Jonesboro, Georgia venue built around a simple idea: your
+                  celebration should feel effortless. We provide a clean, elegant, and flexible
+                  space — and the freedom to make it your own.
+                </p>
+                <p>
+                  Whether you're planning a wedding, a milestone birthday, or a corporate
+                  gathering, our half-day and full-day packages give you the time and the canvas
+                  to bring your event to life.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA band */}
       <section style={{ background: "#0b0b0b", padding: "80px 0" }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

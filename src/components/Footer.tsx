@@ -51,7 +51,7 @@ export default function Footer() {
               {[
                 { to: "/", label: "Home" },
                 { to: "/gallery", label: "Gallery" },
-                { to: "/about", label: "About & Services" },
+                { to: "/events", label: "Pricing" },
                 { to: "/contact", label: "Contact" },
                 { to: "/book", label: "Book Now" },
               ].map((l) => (
