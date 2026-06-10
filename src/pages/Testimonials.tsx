@@ -1,14 +1,7 @@
-import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
 import { VIDEO, VIDEO_POSTER, PAGE_HERO_IMAGE } from "@/lib/media";
-
-/** Vertical event reels shown below the main testimonial. */
-const reels = [
-  { src: VIDEO.outdoorReel, poster: VIDEO_POSTER.outdoorReel, title: "Outdoor Events", body: "Receptions and gatherings under the open-air pavilion." },
-  { src: VIDEO.gameNight, poster: VIDEO_POSTER.gameNight, title: "Game Night", body: "The energy of a full house — food, friends, and fun." },
-];
 
 export default function Testimonials() {
   useReveal();
@@ -95,80 +88,6 @@ export default function Testimonials() {
                 </video>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Event reels */}
-      <section style={{ background: "#080808", padding: "80px 0" }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="reveal text-white text-2xl sm:text-3xl font-bold text-center mb-12" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Moments at JVO
-          </h2>
-          <div className="grid gap-6 sm:grid-cols-2 max-w-xl mx-auto">
-            {reels.map((r) => (
-              <div key={r.title} className="reveal">
-                <div
-                  className="overflow-hidden mx-auto"
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.10)",
-                    background: "#000",
-                    borderRadius: "0.25rem",
-                  }}
-                >
-                  <video
-                    controls
-                    playsInline
-                    preload="none"
-                    poster={r.poster}
-                    className="w-full"
-                    style={{ display: "block", aspectRatio: "9 / 16", background: "#000" }}
-                  >
-                    <source src={r.src} type="video/mp4" />
-                  </video>
-                </div>
-                <h3 className="text-white text-base font-bold mt-4 text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
-                  {r.title}
-                </h3>
-                <p className="text-white/45 text-xs leading-relaxed text-center mt-1 px-2" style={{ fontFamily: "'Lato', sans-serif" }}>
-                  {r.body}
-                </p>
-              </div>
-            ))}
-          </div>
-
-        </div>
-      </section>
-
-      {/* Community / grand opening feature */}
-      <section style={{ background: "#0b0b0b", padding: "80px 0" }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Rooted In Community
-            </p>
-            <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-              More than a venue
-            </h2>
-            <div className="reveal accent-divider mx-auto mt-5" />
-          </div>
-          <div className="reveal overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000" }}>
-            <video
-              controls
-              playsInline
-              preload="metadata"
-              poster={VIDEO_POSTER.cookup}
-              className="w-full"
-              style={{ display: "block", aspectRatio: "16 / 9", background: "#000" }}
-            >
-              <source src={VIDEO.cookup} type="video/mp4" />
-            </video>
-          </div>
-
-          <div className="text-center mt-14">
-            <Link to="/book" className="reveal btn-white inline-block">
-              Book Your Event
-            </Link>
           </div>
         </div>
       </section>
