@@ -6,6 +6,25 @@ import { useReveal } from "@/lib/useReveal";
 import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
 import { HERO_VIDEO, HERO_IMAGE, VIDEO, VIDEO_POSTER } from "@/lib/media";
 
+/** Every kind of event hosted at JVO — shown in the "What we host" grid. */
+const eventTypes = [
+  "Birthday Parties",
+  "Game Nights & Socials",
+  "Baby Showers",
+  "Gender Reveals",
+  "Weddings",
+  "Family Reunions",
+  "Graduation Celebrations",
+  "Corporate Events",
+  "Pop-Up Shops & Vendors",
+  "Anniversary Celebrations",
+  "Taste Testings",
+  "Quinceañeras",
+  "Retirement Parties",
+  "Holiday Parties",
+  "Networking Events",
+];
+
 const highlights = [
   {
     title: "Weddings & Receptions",
@@ -121,7 +140,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Highlights */}
+      {/* Highlights + pricing, together up top */}
       <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 md:grid-cols-3">
@@ -159,53 +178,68 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Pricing — bumped up here, alongside the event highlights */}
+          <div className="mt-16">
+            <div className="reveal text-center mb-8">
+              <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Simple, Transparent Pricing
+              </p>
+              <h2 className="text-white text-3xl sm:text-4xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Book the time you need
+              </h2>
+              <div className="accent-divider mx-auto mt-5" />
+            </div>
+            <div className="reveal grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto">
+              {[
+                { label: "Half Day", sub: "5 hours", value: "$800" },
+                { label: "Full Day", sub: "10 hours", value: "$1,300" },
+                { label: "Deposit to Reserve", sub: "Applied to your total", value: "$150" },
+              ].map((p) => (
+                <div
+                  key={p.label}
+                  className="p-6 text-center"
+                  style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)" }}
+                >
+                  <div className="text-white text-3xl font-bold" style={{ fontFamily: "'Lato', sans-serif" }}>{p.value}</div>
+                  <div className="text-white text-base font-bold mt-2" style={{ fontFamily: "'Playfair Display', serif" }}>{p.label}</div>
+                  <div className="text-white/40 text-xs tracking-wide uppercase mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>{p.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-center mt-10">
+              <Link to="/book" className="reveal btn-white inline-block">
+                Check Availability
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Video in motion — large reels front and center */}
+      {/* What we host — full list of event types */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="reveal text-center max-w-2xl mx-auto mb-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="reveal text-center mb-12">
             <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-              See It In Motion
+              All The Things We Do
             </p>
-            <h2 className="text-white text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-              The energy of a full house
+            <h2 className="text-white text-3xl sm:text-4xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+              What we host
             </h2>
             <div className="accent-divider mx-auto mt-5" />
-            <p className="text-white/50 text-base leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
-              From game nights to receptions, JVO comes alive when your people fill the
-              room. Take a look — then picture your own event here.
-            </p>
           </div>
-          <div className="reveal grid grid-cols-2 gap-5 sm:gap-8 max-w-3xl mx-auto">
-            {[
-              { src: VIDEO.outdoorReel, poster: VIDEO_POSTER.outdoorReel },
-              { src: VIDEO.gameNight, poster: VIDEO_POSTER.gameNight },
-            ].map((v, i) => (
+          <div className="reveal grid grid-cols-2 sm:grid-cols-3 gap-px" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            {eventTypes.map((e) => (
               <div
-                key={i}
-                className="overflow-hidden"
-                style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000", borderRadius: "0.25rem" }}
+                key={e}
+                className="px-5 py-5 text-center"
+                style={{ background: "#080808" }}
               >
-                <video
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  poster={v.poster}
-                  className="w-full"
-                  style={{ display: "block", aspectRatio: "9 / 16", objectFit: "cover" }}
-                >
-                  <source src={v.src} type="video/mp4" />
-                </video>
+                <span className="text-white/70 text-sm sm:text-base" style={{ fontFamily: "'Lato', sans-serif" }}>
+                  {e}
+                </span>
               </div>
             ))}
-          </div>
-          <div className="text-center mt-12">
-            <Link to="/testimonials" className="reveal btn-white inline-block">
-              Watch Testimonials
-            </Link>
           </div>
         </div>
       </section>
@@ -243,7 +277,7 @@ export default function Home() {
           muted
           loop
           playsInline
-          poster={VIDEO_POSTER.cookup}
+          poster={VIDEO_POSTER.cookupBgOutdoor}
         >
           <source src={VIDEO.cookupBg} type="video/mp4" />
         </video>
@@ -326,77 +360,6 @@ export default function Home() {
                   </div>
                   <div
                     className="text-white text-xl font-bold"
-                    style={{ fontFamily: "'Lato', sans-serif" }}
-                  >
-                    {p.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing teaser */}
-      <section style={{ background: "#080808", padding: "90px 0" }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-2 items-center">
-            <div className="reveal">
-              <p
-                className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3"
-                style={{ fontFamily: "'Lato', sans-serif" }}
-              >
-                Simple, Transparent Pricing
-              </p>
-              <h2
-                className="text-white text-3xl sm:text-4xl font-bold leading-tight"
-                style={{ fontFamily: "'Playfair Display', serif" }}
-              >
-                Book the time you need
-              </h2>
-              <div className="accent-divider mt-5" />
-              <p
-                className="text-white/50 text-base leading-relaxed mt-6"
-                style={{ fontFamily: "'Lato', sans-serif" }}
-              >
-                Reserve a half or full day. A $150 deposit secures your date — the rest
-                is due closer to your event.
-              </p>
-              <Link to="/book" className="btn-white mt-8 inline-block">
-                Check Availability
-              </Link>
-            </div>
-
-            <div className="reveal space-y-4">
-              {[
-                { label: "Half Day", sub: "5 hours", value: "$800" },
-                { label: "Full Day", sub: "10 hours", value: "$1,300" },
-                { label: "Deposit to Reserve", sub: "Applied to your total", value: "$150" },
-              ].map((p) => (
-                <div
-                  key={p.label}
-                  className="flex items-center justify-between p-6"
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    background: "rgba(255,255,255,0.02)",
-                  }}
-                >
-                  <div>
-                    <div
-                      className="text-white text-lg font-bold"
-                      style={{ fontFamily: "'Playfair Display', serif" }}
-                    >
-                      {p.label}
-                    </div>
-                    <div
-                      className="text-white/40 text-xs tracking-wide uppercase mt-1"
-                      style={{ fontFamily: "'Lato', sans-serif" }}
-                    >
-                      {p.sub}
-                    </div>
-                  </div>
-                  <div
-                    className="text-white text-2xl font-bold"
                     style={{ fontFamily: "'Lato', sans-serif" }}
                   >
                     {p.value}

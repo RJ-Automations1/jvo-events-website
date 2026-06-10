@@ -73,6 +73,35 @@ export default function Corporate() {
         </div>
       </section>
 
+      {/* Pricing — moved up, right under the hero */}
+      <section style={{ background: "#080808", padding: "90px 0" }}>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+            Event Packages
+          </p>
+          <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Simple, transparent pricing
+          </h2>
+          <div className="reveal accent-divider mx-auto mt-5" />
+          <div className="reveal grid sm:grid-cols-3 gap-4 mt-10">
+            {[
+              { label: "Half Day", sub: "5 hours", value: "$800" },
+              { label: "Full Day", sub: "10 hours", value: "$1,300" },
+              { label: "Deposit", sub: "To reserve", value: "$150" },
+            ].map((p) => (
+              <div key={p.label} className="p-6" style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)" }}>
+                <div className="text-white text-2xl font-bold" style={{ fontFamily: "'Lato', sans-serif" }}>{p.value}</div>
+                <div className="text-white text-base font-bold mt-2" style={{ fontFamily: "'Playfair Display', serif" }}>{p.label}</div>
+                <div className="text-white/40 text-xs tracking-wide uppercase mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>{p.sub}</div>
+              </div>
+            ))}
+          </div>
+          <Link to="/book" className="reveal btn-white mt-10 inline-block">
+            Book Your Event
+          </Link>
+        </div>
+      </section>
+
       {/* Event films — the three signature event types */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -131,35 +160,6 @@ export default function Corporate() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section style={{ background: "#080808", padding: "90px 0" }}>
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-            Event Packages
-          </p>
-          <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Simple, transparent pricing
-          </h2>
-          <div className="reveal accent-divider mx-auto mt-5" />
-          <div className="reveal grid sm:grid-cols-3 gap-4 mt-10">
-            {[
-              { label: "Half Day", sub: "5 hours", value: "$800" },
-              { label: "Full Day", sub: "10 hours", value: "$1,300" },
-              { label: "Deposit", sub: "To reserve", value: "$150" },
-            ].map((p) => (
-              <div key={p.label} className="p-6" style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.02)" }}>
-                <div className="text-white text-2xl font-bold" style={{ fontFamily: "'Lato', sans-serif" }}>{p.value}</div>
-                <div className="text-white text-base font-bold mt-2" style={{ fontFamily: "'Playfair Display', serif" }}>{p.label}</div>
-                <div className="text-white/40 text-xs tracking-wide uppercase mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>{p.sub}</div>
-              </div>
-            ))}
-          </div>
-          <Link to="/book" className="reveal btn-white mt-10 inline-block">
-            Book Your Event
-          </Link>
         </div>
       </section>
 
