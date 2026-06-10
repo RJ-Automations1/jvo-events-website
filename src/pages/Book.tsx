@@ -30,15 +30,14 @@ export default function BookingPage() {
         return;
       }
 
-      // 2) On a completed submission JotForm posts { action: 'submission-end' }.
-      //    Send the guest straight to Cheddar Up to pay the $150 deposit.
+      // 2) On a completed submission JotForm posts a "submission-completed" /
+      //    "submission-end" signal (as a string, or an object with `.action`).
+      //    Send the guest straight to Cheddar Up to pay the deposit / add weather.
+      const looksComplete = (s: unknown): boolean =>
+        typeof s === "string" && /submission-(completed|end)|thank[\s-]?you/i.test(s);
       const action =
-        data && typeof data === "object"
-          ? (data as { action?: string }).action
-          : typeof data === "string" && data.includes("submission-end")
-          ? "submission-end"
-          : undefined;
-      if (action === "submission-end") {
+        data && typeof data === "object" ? (data as { action?: unknown }).action : undefined;
+      if (looksComplete(action) || looksComplete(data)) {
         window.location.href = CHEDDARUP_DEPOSIT_URL;
       }
     };
