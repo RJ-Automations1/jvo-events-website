@@ -101,15 +101,21 @@ export default function Corporate() {
             style={{ border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.03)" }}
           >
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <div className="text-white text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-                Security Deposit
+              <div>
+                <span className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase block mb-1" style={{ fontFamily: "'Lato', sans-serif" }}>
+                  Separate · Refundable
+                </span>
+                <span className="text-white text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  Security Deposit
+                </span>
               </div>
               <div className="text-white text-3xl font-bold" style={{ fontFamily: "'Lato', sans-serif" }}>$150</div>
             </div>
             <div className="accent-divider mt-4" />
             <p className="text-white/55 text-sm sm:text-base leading-relaxed mt-5" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Due at the time of booking to reserve your date. The deposit is fully refunded
-              after your event, as long as the space is returned clean and there is no damage
+              The $150 security deposit is separate and <span className="text-white/80 font-semibold">not included</span> in the
+              Half Day ($800) or Full Day ($1,300) rate. It's due at the time of booking to reserve your date,
+              and is fully refunded to you after your event as long as the space is returned clean with no damage
               to the property.
             </p>
           </div>
