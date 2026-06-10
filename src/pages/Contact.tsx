@@ -60,14 +60,30 @@ export default function Contact() {
                     className="text-white/30 text-xs tracking-widest uppercase mb-2"
                     style={{ fontFamily: "'Lato', sans-serif" }}
                   >
-                    Email
+                    Phone
                   </div>
                   <a
-                    href="mailto:info@jvoevents.com"
+                    href="tel:+16785194723"
                     className="text-white/70 text-lg hover:text-white transition-colors"
                     style={{ fontFamily: "'Lato', sans-serif" }}
                   >
-                    info@jvoevents.com
+                    678-519-4723
+                  </a>
+                </div>
+
+                <div>
+                  <div
+                    className="text-white/30 text-xs tracking-widest uppercase mb-2"
+                    style={{ fontFamily: "'Lato', sans-serif" }}
+                  >
+                    Email
+                  </div>
+                  <a
+                    href="mailto:jonesborovirtualoffice@gmail.com"
+                    className="text-white/70 text-lg hover:text-white transition-colors"
+                    style={{ fontFamily: "'Lato', sans-serif" }}
+                  >
+                    jonesborovirtualoffice@gmail.com
                   </a>
                 </div>
 
@@ -86,6 +102,29 @@ export default function Contact() {
                     style={{ fontFamily: "'Lato', sans-serif" }}
                   >
                     www.jvoevents.com
+                  </a>
+                </div>
+
+                <div>
+                  <div
+                    className="text-white/30 text-xs tracking-widest uppercase mb-2"
+                    style={{ fontFamily: "'Lato', sans-serif" }}
+                  >
+                    Instagram
+                  </div>
+                  <a
+                    href="https://www.instagram.com/jvoevents/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-white/70 text-lg hover:text-white transition-colors"
+                    style={{ fontFamily: "'Lato', sans-serif" }}
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="2" y="2" width="20" height="20" rx="5.5" />
+                      <circle cx="12" cy="12" r="4" />
+                      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+                    </svg>
+                    @jvoevents
                   </a>
                 </div>
 

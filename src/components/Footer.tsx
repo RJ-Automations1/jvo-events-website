@@ -23,6 +23,20 @@ export default function Footer() {
               An elegant event space for weddings, celebrations, and gatherings in
               Jonesboro, Georgia.
             </p>
+            <a
+              href="https://www.instagram.com/jvoevents/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="JVO Events on Instagram"
+              className="inline-flex items-center gap-2 mt-5 text-white/50 hover:text-white transition-colors"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="5.5" />
+                <circle cx="12" cy="12" r="4" />
+                <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+              </svg>
+              <span className="text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>@jvoevents</span>
+            </a>
           </div>
 
           {/* Explore */}
@@ -75,10 +89,10 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:info@jvoevents.com"
+                  href="mailto:jonesborovirtualoffice@gmail.com"
                   className="text-white/50 text-sm hover:text-white/85 transition-colors"
                 >
-                  info@jvoevents.com
+                  jonesborovirtualoffice@gmail.com
                 </a>
               </li>
               <li className="text-white/50 text-sm">Jonesboro, Georgia</li>

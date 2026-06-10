@@ -132,7 +132,7 @@ app.post("/api/book", async (req, res) => {
     console.error("[/api/book] failed:", err);
     return res.status(502).json({
       error:
-        "We couldn't complete your booking right now. Please try again shortly or email info@jvoevents.com.",
+        "We couldn't complete your booking right now. Please try again shortly or email jonesborovirtualoffice@gmail.com.",
     });
   }
 });
