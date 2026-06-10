@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
 import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
-import { HERO_VIDEO, VIDEO, VIDEO_POSTER } from "@/lib/media";
+import { HERO_VIDEO, HERO_IMAGE, VIDEO, VIDEO_POSTER } from "@/lib/media";
 
 const highlights = [
   {
@@ -44,7 +44,7 @@ export default function Home() {
           loop
           playsInline
           preload="auto"
-          poster={VIDEO_POSTER.outdoorReel}
+          poster={HERO_IMAGE}
         >
           <source src={HERO_VIDEO} type="video/mp4" />
         </video>
