@@ -1,10 +1,7 @@
-import { useRef } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
-import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
-import { VIDEO, VIDEO_POSTER } from "@/lib/media";
 
 /** Core rental packages. */
 const packages = [
@@ -14,26 +11,17 @@ const packages = [
 
 export default function Corporate() {
   useReveal();
-  const heroRef = useRef<HTMLVideoElement>(null);
-  useUnmuteOnInteraction(heroRef);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh" }}>
       <Navbar />
 
-      {/* Video hero */}
+      {/* Image hero — the decorated outdoor space */}
       <section className="relative flex items-center overflow-hidden" style={{ minHeight: "70vh" }}>
-        <video
-          ref={heroRef}
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          poster={VIDEO_POSTER.outdoorReel}
-        >
-          <source src={VIDEO.outdoorReel} type="video/mp4" />
-        </video>
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(/manus-storage/outdoor-decorated.jpg)` }}
+        />
         <div
           className="absolute inset-0"
           style={{

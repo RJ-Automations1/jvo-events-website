@@ -39,7 +39,7 @@ const highlights = [
   {
     title: "Birthday Parties",
     body: "From milestone birthdays to low-key celebrations, set the scene for the people who matter most.",
-    img: "/manus-storage/event-birthday.png",
+    img: "/manus-storage/birthday-happy.jpg",
   },
   {
     title: "Gender Reveals",
