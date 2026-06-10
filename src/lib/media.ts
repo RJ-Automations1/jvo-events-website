@@ -8,11 +8,10 @@
 export const HERO_IMAGE = "/manus-storage/DSC00304-HDR.jpg";
 
 /**
- * Homepage hero video background — one big outdoor tour: the covered deck
- * flowing into the grounds and pavilion (space-hero + the outdoor reel combined
- * into a single landscape loop). Silent, faststart; HERO_IMAGE is the poster.
+ * Homepage hero video background — the outdoor reel (same clip used on the
+ * Events page hero). Poster is VIDEO_POSTER.outdoorReel on the Home page.
  */
-export const HERO_VIDEO = "/manus-storage/video/hero-outdoor.mp4";
+export const HERO_VIDEO = "/manus-storage/video/reel-outdoor.mp4";
 
 // Secondary hero used on interior page headers.
 export const PAGE_HERO_IMAGE = "/manus-storage/DSC00327-HDR.jpg";
