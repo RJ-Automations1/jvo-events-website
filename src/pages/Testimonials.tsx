@@ -72,11 +72,11 @@ export default function Testimonials() {
           <p className="reveal text-white/45 text-sm text-center mb-12" style={{ fontFamily: "'Lato', sans-serif" }}>
             A few words from the people who make JVO special.
           </p>
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 max-w-3xl mx-auto">
             {[
-              { src: VIDEO.voiceGreen, poster: VIDEO_POSTER.voiceGreen },
-              { src: VIDEO.voiceYellow, poster: VIDEO_POSTER.voiceYellow },
-              { src: VIDEO.voiceSuit, poster: VIDEO_POSTER.voiceSuit },
+              { src: VIDEO.igTestimonial1, poster: VIDEO_POSTER.igTestimonial1 },
+              { src: VIDEO.igTestimonial2, poster: VIDEO_POSTER.igTestimonial2 },
+              { src: VIDEO.igTestimonial3, poster: VIDEO_POSTER.igTestimonial3 },
             ].map((v, i) => (
               <div
                 key={i}
@@ -89,7 +89,7 @@ export default function Testimonials() {
                   preload="none"
                   poster={v.poster}
                   className="w-full"
-                  style={{ display: "block", aspectRatio: "16 / 9", background: "#000" }}
+                  style={{ display: "block", aspectRatio: "9 / 16", background: "#000" }}
                 >
                   <source src={v.src} type="video/mp4" />
                 </video>

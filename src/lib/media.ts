@@ -31,6 +31,9 @@ export const VIDEO = {
   voiceGreen: "/manus-storage/video/testimonial-green.mp4",
   voiceYellow: "/manus-storage/video/testimonial-yellow.mp4",
   voiceSuit: "/manus-storage/video/testimonial-suit.mp4",
+  igTestimonial1: "/manus-storage/video/ig-testimonial-1.mp4",
+  igTestimonial2: "/manus-storage/video/ig-testimonial-2.mp4",
+  igTestimonial3: "/manus-storage/video/ig-testimonial-3.mp4",
   wedding: "/manus-storage/video/wedding.mp4",
 };
 
@@ -44,8 +47,20 @@ export const VIDEO_POSTER = {
   voiceGreen: "/manus-storage/video/testimonial-green.jpg",
   voiceYellow: "/manus-storage/video/testimonial-yellow.jpg",
   voiceSuit: "/manus-storage/video/testimonial-suit.jpg",
+  igTestimonial1: "/manus-storage/video/ig-testimonial-1.jpg",
+  igTestimonial2: "/manus-storage/video/ig-testimonial-2.jpg",
+  igTestimonial3: "/manus-storage/video/ig-testimonial-3.jpg",
   wedding: "/manus-storage/video/wedding.jpg",
 };
+
+// Event reels (from Instagram) shown on the right half of the Gallery.
+export const REELS: { src: string; poster: string }[] = Array.from(
+  { length: 10 },
+  (_, i) => ({
+    src: `/manus-storage/video/reels/reel${i + 1}.mp4`,
+    poster: `/manus-storage/video/reels/reel${i + 1}.jpg`,
+  })
+);
 
 // Curated gallery selection — venue architecture mixed with real event moments.
 export const GALLERY: { src: string; alt: string; span?: string }[] = [

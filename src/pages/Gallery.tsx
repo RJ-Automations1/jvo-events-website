@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
-import { GALLERY as photos, PAGE_HERO_IMAGE } from "@/lib/media";
+import { GALLERY as photos, REELS as reels, PAGE_HERO_IMAGE } from "@/lib/media";
 
 export default function Gallery() {
   useReveal();
@@ -35,39 +35,70 @@ export default function Gallery() {
         </div>
       </section>
 
-      {/* Grid */}
+      {/* Split: Photos (left) · Videos (right) */}
       <section style={{ background: "#080808", padding: "80px 0" }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-[220px]">
-            {photos.map((p, i) => (
-              <div
-                key={i}
-                className={`reveal group relative overflow-hidden ${p.span ?? ""}`}
-                style={{ border: "1px solid rgba(255,255,255,0.07)", background: "#111" }}
-              >
-                <img
-                  src={p.src}
-                  alt={p.alt}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  onError={(e) => {
-                    // Graceful placeholder until real images are added
-                    (e.currentTarget as HTMLImageElement).style.opacity = "0";
-                  }}
-                />
-                <div
-                  className="absolute inset-0 flex items-end p-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}
-                >
-                  <span
-                    className="text-white/80 text-xs tracking-wide uppercase"
-                    style={{ fontFamily: "'Lato', sans-serif" }}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12">
+            {/* Photos */}
+            <div>
+              <h2 className="reveal text-white text-xl font-bold mb-6 tracking-[0.1em] uppercase" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Photos
+              </h2>
+              <div className="columns-2 gap-3" style={{ columnGap: "0.75rem" }}>
+                {photos.map((p, i) => (
+                  <div
+                    key={i}
+                    className="reveal group relative overflow-hidden mb-3"
+                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: "#111", breakInside: "avoid" }}
                   >
-                    {p.alt}
-                  </span>
-                </div>
+                    <img
+                      src={p.src}
+                      alt={p.alt}
+                      loading="lazy"
+                      className="w-full block transition-transform duration-700 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.opacity = "0";
+                      }}
+                    />
+                    <div
+                      className="absolute inset-0 flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}
+                    >
+                      <span className="text-white/80 text-[0.65rem] tracking-wide uppercase" style={{ fontFamily: "'Lato', sans-serif" }}>
+                        {p.alt}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Videos */}
+            <div>
+              <h2 className="reveal text-white text-xl font-bold mb-6 tracking-[0.1em] uppercase" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Videos
+              </h2>
+              <div className="columns-2 gap-3" style={{ columnGap: "0.75rem" }}>
+                {reels.map((r, i) => (
+                  <div
+                    key={i}
+                    className="reveal overflow-hidden mb-3"
+                    style={{ border: "1px solid rgba(255,255,255,0.10)", background: "#000", breakInside: "avoid", borderRadius: "0.125rem" }}
+                  >
+                    <video
+                      controls
+                      playsInline
+                      preload="none"
+                      poster={r.poster}
+                      className="w-full block"
+                      style={{ background: "#000" }}
+                    >
+                      <source src={r.src} type="video/mp4" />
+                    </video>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="text-center mt-16">
