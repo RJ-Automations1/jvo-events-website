@@ -160,7 +160,7 @@ export default function Contact() {
                   src="https://www.google.com/maps?q=127+Jonesboro+Rd,+Jonesboro,+GA+30236&output=embed"
                   width="100%"
                   height="100%"
-                  style={{ border: 0, minHeight: "380px", filter: "grayscale(1) invert(0.92) contrast(0.9)" }}
+                  style={{ border: 0, minHeight: "380px" }}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
