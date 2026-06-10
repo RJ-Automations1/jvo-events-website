@@ -69,9 +69,8 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative flex items-center overflow-hidden" style={{ height: "100vh", minHeight: "620px" }}>
-        {/* Video background — the outdoor clip that opens on the entrance door, played
-            straight as the hero (no poster, black until the first frame). Not the
-            multi-scene reel montage. */}
+        {/* Video background — the outdoor reel, played straight as the hero (no poster,
+            black until the first frame). */}
         <video
           ref={heroRef}
           className="absolute inset-0 h-full w-full object-cover"
@@ -82,7 +81,7 @@ export default function Home() {
           playsInline
           preload="auto"
         >
-          <source src={VIDEO.cookupBg} type="video/mp4" />
+          <source src={VIDEO.outdoorReel} type="video/mp4" />
         </video>
         <div
           className="absolute inset-0"

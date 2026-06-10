@@ -65,8 +65,7 @@ export default function Corporate() {
     <div style={{ background: "#080808", minHeight: "100vh" }}>
       <Navbar />
 
-      {/* Video hero — the outdoor reel: gate opens past the JVO Outdoor Events
-          sign and walks straight into the space (no interior footage). */}
+      {/* Video hero — the outdoor clip that opens on the entrance door. */}
       <section className="relative flex items-center overflow-hidden" style={{ minHeight: "70vh" }}>
         <video
           ref={heroRef}
@@ -75,9 +74,9 @@ export default function Corporate() {
           muted
           loop
           playsInline
-          poster={VIDEO_POSTER.outdoorReel}
+          poster={VIDEO_POSTER.cookupBgOutdoor}
         >
-          <source src={VIDEO.outdoorReel} type="video/mp4" />
+          <source src={VIDEO.cookupBg} type="video/mp4" />
         </video>
         <div
           className="absolute inset-0"
@@ -182,8 +181,9 @@ export default function Corporate() {
             </div>
             <div className="accent-divider mt-4" />
             <p className="text-white/55 text-sm sm:text-base leading-relaxed mt-5" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Add weather assurance to your booking and, in the event of inclement weather,
-              cancel for a full refund or reschedule your event for another date.
+              Weather assurance is an <span className="text-white font-semibold">optional</span> add-on. Add it to your booking and,
+              in the event of inclement weather, cancel for a full refund or reschedule your
+              event for another date.
             </p>
           </div>
 
@@ -191,6 +191,61 @@ export default function Corporate() {
             <Link to="/book" className="reveal btn-white inline-block">
               Book Your Event
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Event rules & conditions */}
+      <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+              Please Review Before Booking
+            </p>
+            <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+              Event Rules &amp; Conditions
+            </h2>
+            <div className="reveal accent-divider mx-auto mt-5" />
+          </div>
+
+          <div className="reveal grid gap-px sm:grid-cols-2" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            {rules.map((r, i) => (
+              <div key={r.title} className="flex gap-5 p-7" style={{ background: "#0b0b0b" }}>
+                <span
+                  className="shrink-0 text-2xl font-bold leading-none"
+                  style={{ fontFamily: "'Playfair Display', serif", color: "#c9a96a" }}
+                >
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div>
+                  <h3 className="text-white text-base font-bold leading-snug" style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {r.title}
+                  </h3>
+                  <p className="text-white/50 text-sm leading-relaxed mt-2" style={{ fontFamily: "'Lato', sans-serif" }}>
+                    {r.body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Respect + emergency contacts */}
+          <div
+            className="reveal text-center mt-10 px-6 py-9"
+            style={{ border: "1px solid rgba(201,169,106,0.35)", background: "rgba(201,169,106,0.06)" }}
+          >
+            <p className="text-white text-lg sm:text-xl font-bold tracking-wide" style={{ fontFamily: "'Playfair Display', serif" }}>
+              Respect the space and yourself
+            </p>
+            <div className="accent-divider mx-auto mt-4 mb-5" />
+            <p className="text-[#c9a96a] text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+              Emergency Contacts
+            </p>
+            <p className="text-white/80 text-base sm:text-lg" style={{ fontFamily: "'Lato', sans-serif" }}>
+              <a href="tel:+14047482055" className="hover:text-white transition-colors">404-748-2055</a>
+              <span className="text-white/30 mx-3">&amp;</span>
+              <a href="tel:+14042070953" className="hover:text-white transition-colors">404-207-0953</a>
+            </p>
           </div>
         </div>
       </section>
