@@ -33,7 +33,12 @@ const SA_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
 
 let calendarClientPromise = null;
 
-/** Lazily build an authenticated Calendar API client (only when configured). */
+/**
+ * Lazily build an authenticated Calendar API client (only when configured).
+ * Scope is `calendar.events` (read + write of events) so the same client can
+ * both read availability and create booking holds. The service account must be
+ * shared on the calendar with "Make changes to events" for writes to succeed.
+ */
 async function getCalendarClient() {
   if (calendarClientPromise) return calendarClientPromise;
   calendarClientPromise = (async () => {
@@ -41,7 +46,7 @@ async function getCalendarClient() {
     const credentials = JSON.parse(SA_JSON);
     const auth = new google.auth.GoogleAuth({
       credentials,
-      scopes: ["https://www.googleapis.com/auth/calendar.readonly"],
+      scopes: ["https://www.googleapis.com/auth/calendar.events"],
     });
     return google.calendar({ version: "v3", auth: await auth.getClient() });
   })();
@@ -111,4 +116,81 @@ export async function getBookedDates(from, to) {
     datesForEvent(ev).forEach((d) => set.add(d));
   }
   return { configured: true, bookedDates: [...set].sort() };
+}
+
+/**
+ * Create an all-day "hold" event on the booking calendar so the event date is
+ * blocked everywhere the site reads availability. All-day sidesteps timezone
+ * math, and the `datesForEvent()` reader already treats it as a full-day block.
+ *
+ * Idempotent: tags each event with extendedProperties.private.{jvoSource,
+ * jotformId} and skips creation if a matching website event already exists on
+ * that date — so JotForm webhook retries / double submits don't duplicate.
+ *
+ * @param {object} booking - { name, email, phone, eventDate (YYYY-MM-DD),
+ *   package, eventType, guestCount, message, submissionId? }
+ * @returns {Promise<{configured:boolean, created:boolean, duplicate?:boolean, id?:string, htmlLink?:string}>}
+ */
+export async function createCalendarEvent(booking) {
+  if (!CALENDAR_ID || !SA_JSON) {
+    return { configured: false, created: false };
+  }
+  const eventDate = String(booking.eventDate).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+    throw new Error(`createCalendarEvent: invalid eventDate "${booking.eventDate}"`);
+  }
+  const submissionId = booking.submissionId ? String(booking.submissionId) : "";
+  const calendar = await getCalendarClient();
+
+  // Idempotency check — look for an existing website-created event around the date.
+  try {
+    const props = ["jvoSource=website"];
+    if (submissionId) props.push(`jotformId=${submissionId}`);
+    const { data } = await calendar.events.list({
+      calendarId: CALENDAR_ID,
+      privateExtendedProperty: props,
+      timeMin: new Date(`${eventDate}T00:00:00Z`).toISOString(),
+      timeMax: new Date(`${addDays(eventDate, 2)}T00:00:00Z`).toISOString(),
+      singleEvents: true,
+      maxResults: 5,
+    });
+    const existing = (data.items || []).find((e) => e.status !== "cancelled");
+    if (existing) {
+      return { configured: true, created: false, duplicate: true, id: existing.id };
+    }
+  } catch {
+    // If the dedup lookup fails, fall through and attempt creation anyway.
+  }
+
+  const name = booking.name || "Guest";
+  const pkg = booking.package ? ` · ${booking.package}` : "";
+  const description = [
+    booking.email ? `Email: ${booking.email}` : null,
+    booking.phone ? `Phone: ${booking.phone}` : null,
+    booking.eventType ? `Event type: ${booking.eventType}` : null,
+    booking.guestCount ? `Guests: ${booking.guestCount}` : null,
+    booking.message ? `Notes: ${booking.message}` : null,
+    "",
+    "Created automatically from the JVO website booking form. Deposit pending until paid on Cheddar Up.",
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+
+  const { data: created } = await calendar.events.insert({
+    calendarId: CALENDAR_ID,
+    requestBody: {
+      summary: `Booked (deposit pending) — ${name}${pkg}`,
+      description,
+      start: { date: eventDate },
+      end: { date: addDays(eventDate, 1) },
+      transparency: "opaque",
+      extendedProperties: {
+        private: {
+          jvoSource: "website",
+          ...(submissionId ? { jotformId: submissionId } : {}),
+        },
+      },
+    },
+  });
+  return { configured: true, created: true, id: created.id, htmlLink: created.htmlLink };
 }

@@ -1,14 +1,18 @@
 import "dotenv/config";
 import express from "express";
+import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createDeskworksReservation } from "./server/deskworks.js";
-import { getBookedDates } from "./server/googleCalendar.js";
+import { getBookedDates, createCalendarEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 8787;
+
+// Parser for JotForm's multipart/form-data webhook (text fields only).
+const upload = multer();
 
 app.use(express.json());
 
@@ -116,7 +120,7 @@ app.post("/api/book", async (req, res) => {
   }
 
   try {
-    const result = await createDeskworksReservation({
+    const result = await processBooking({
       name: String(b.name).trim(),
       email: String(b.email).trim(),
       phone: b.phone ? String(b.phone).trim() : "",
@@ -127,13 +131,187 @@ app.post("/api/book", async (req, res) => {
       message: b.message ? String(b.message).trim() : "",
     });
 
-    return res.status(200).json({ ok: true, reference: result.reference ?? null });
+    if (!result.deskworks && !result.calendar) {
+      throw new Error(result.errors.join("; ") || "booking failed");
+    }
+    return res
+      .status(200)
+      .json({ ok: true, reference: result.deskworks?.reference ?? null });
   } catch (err) {
     console.error("[/api/book] failed:", err);
     return res.status(502).json({
       error:
         "We couldn't complete your booking right now. Please try again shortly or email jonesborovirtualoffice@gmail.com.",
     });
+  }
+});
+
+/**
+ * Shared booking executor: create the reservation in Deskworks AND a hold on
+ * the Google Calendar. Each side is independent — if one fails we still attempt
+ * the other (so the date gets blocked even if Deskworks errors) and collect the
+ * errors. Returns { deskworks, calendar, errors }.
+ */
+async function processBooking(booking) {
+  const result = { deskworks: null, calendar: null, errors: [] };
+
+  try {
+    result.deskworks = await createDeskworksReservation(booking);
+  } catch (err) {
+    console.error("[processBooking] deskworks failed:", err.message);
+    result.errors.push(`deskworks: ${err.message}`);
+  }
+
+  try {
+    result.calendar = await createCalendarEvent(booking);
+  } catch (err) {
+    console.error("[processBooking] calendar failed:", err.message);
+    result.errors.push(`calendar: ${err.message}`);
+  }
+
+  return result;
+}
+
+// --- JotForm submission webhook → auto-book Deskworks + Google Calendar ---
+const JOTFORM_FORM_ID = process.env.JOTFORM_FORM_ID || "222155218269153";
+const JOTFORM_WEBHOOK_SECRET = process.env.JOTFORM_WEBHOOK_SECRET || "";
+
+/** Coerce a JotForm field value (string or {first,last}/{month,day,year}/…) to text. */
+function jfText(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "object") {
+    if (v.first || v.last) return [v.first, v.last].filter(Boolean).join(" ").trim();
+    if (v.year && v.month && v.day) {
+      const p = (n) => String(n).padStart(2, "0");
+      return `${v.year}-${p(v.month)}-${p(v.day)}`;
+    }
+    if (v.datetime) return String(v.datetime).trim();
+    if (v.full) return String(v.full).trim();
+    if (v.area && v.phone) return `(${v.area}) ${v.phone}`;
+    return Object.values(v).filter(Boolean).join(" ").trim();
+  }
+  return String(v).trim();
+}
+
+/** Normalize a JotForm date field to YYYY-MM-DD. */
+function jfDate(v) {
+  if (v && typeof v === "object") {
+    if (v.year && v.month && v.day) {
+      const p = (n) => String(n).padStart(2, "0");
+      return `${v.year}-${p(v.month)}-${p(v.day)}`;
+    }
+    if (v.datetime) return String(v.datetime).slice(0, 10);
+  }
+  const s = String(v ?? "").trim();
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) return `${mdy[3]}-${mdy[1].padStart(2, "0")}-${mdy[2].padStart(2, "0")}`;
+  const ymd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymd) return `${ymd[1]}-${ymd[2].padStart(2, "0")}-${ymd[3].padStart(2, "0")}`;
+  return s;
+}
+
+// Heuristic keyword → field mapping (JotForm keys look like "q5_eventDate").
+// Pin exact qids without a code change via JOTFORM_FIELD_MAP, e.g.
+// {"eventDate":"q5_eventDate","name":"q3_name", ...}.
+const JF_KEYWORDS = {
+  name: ["name", "fullname"],
+  email: ["email", "emailaddress"],
+  phone: ["phone", "phonenumber", "mobile", "contactnumber"],
+  eventDate: ["eventdate", "dateofevent", "eventday", "date"],
+  package: ["package", "eventpackage", "rentalpackage", "selectpackage"],
+  eventType: ["eventtype", "typeofevent", "typeof", "occasion"],
+  guestCount: ["guestcount", "numberofguests", "guests", "numberof", "headcount"],
+  message: ["message", "additionalcomments", "comments", "notes", "details", "tellus"],
+};
+
+/** Map a JotForm rawRequest object (+ webhook body) to our booking schema. */
+function mapJotformSubmission(raw, body) {
+  const out = {
+    name: "",
+    email: "",
+    phone: "",
+    eventDate: "",
+    package: "",
+    eventType: "",
+    guestCount: "",
+    message: "",
+    submissionId: body.submissionID || body.submissionId || raw.submissionID || "",
+  };
+
+  let explicit = {};
+  if (process.env.JOTFORM_FIELD_MAP) {
+    try {
+      explicit = JSON.parse(process.env.JOTFORM_FIELD_MAP);
+    } catch {
+      console.warn("[jotform-hook] JOTFORM_FIELD_MAP is not valid JSON; ignoring.");
+    }
+  }
+  for (const [field, key] of Object.entries(explicit)) {
+    if (raw[key] != null) {
+      out[field] = field === "eventDate" ? jfDate(raw[key]) : jfText(raw[key]);
+    }
+  }
+
+  for (const [key, val] of Object.entries(raw)) {
+    const norm = key.replace(/^q\d+_/, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const [field, kws] of Object.entries(JF_KEYWORDS)) {
+      if (out[field]) continue;
+      if (kws.some((kw) => norm === kw || norm.startsWith(kw) || norm.includes(kw))) {
+        out[field] = field === "eventDate" ? jfDate(val) : jfText(val);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+app.post("/api/jotform-hook", upload.none(), async (req, res) => {
+  // Shared-secret check (configure the webhook URL with ?token=<secret>).
+  if (JOTFORM_WEBHOOK_SECRET) {
+    const token = req.query.token || req.headers["x-webhook-token"];
+    if (token !== JOTFORM_WEBHOOK_SECRET) {
+      console.warn("[jotform-hook] rejected: bad/missing token");
+      return res.status(401).json({ ok: false });
+    }
+  }
+
+  // Always answer 200 — JotForm aggressively retries non-2xx responses.
+  try {
+    const body = req.body || {};
+    const formId = body.formID || body.formId;
+    if (JOTFORM_FORM_ID && formId && String(formId) !== String(JOTFORM_FORM_ID)) {
+      console.warn(`[jotform-hook] ignoring submission for form ${formId}`);
+      return res.status(200).json({ ok: true, ignored: true });
+    }
+
+    let raw = {};
+    if (body.rawRequest) {
+      try {
+        raw = JSON.parse(body.rawRequest);
+      } catch {
+        console.warn("[jotform-hook] could not parse rawRequest");
+      }
+    }
+
+    const booking = mapJotformSubmission(raw, body);
+    if (!booking.name || !booking.email || !booking.eventDate) {
+      console.warn("[jotform-hook] incomplete after mapping:", booking);
+      return res.status(200).json({ ok: true, incomplete: true });
+    }
+
+    const result = await processBooking(booking);
+    console.log("[jotform-hook] processed:", {
+      submissionId: booking.submissionId,
+      eventDate: booking.eventDate,
+      deskworks: result.deskworks,
+      calendar: result.calendar,
+      errors: result.errors,
+    });
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("[jotform-hook] error:", err);
+    return res.status(200).json({ ok: true, error: "logged" });
   }
 });
 

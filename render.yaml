@@ -25,5 +25,8 @@ services:
         value: "32"
       - key: DESKWORKS_IGNORE_WEEKDAYS
         value: "6"
-      - key: DESKWORKS_BASE_URL
+      # JotForm submission webhook → auto-book Deskworks + Google Calendar
+      - key: JOTFORM_WEBHOOK_SECRET
+        sync: false
+      - key: JOTFORM_API_KEY
         sync: false
