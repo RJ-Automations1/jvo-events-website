@@ -44,3 +44,8 @@ services:
         sync: false
       - key: MAIL_REPLY_TO
         sync: false
+      # 30-day payment reminder sweep. Stays OFF until the Deskworks invoice
+      # lookup (server/deskworksPayments.js) is wired up; while off it only
+      # logs what it would send. Flip to "true" when ready.
+      - key: PAYMENT_REMINDERS_ENABLED
+        value: "false"

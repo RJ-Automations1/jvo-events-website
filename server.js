@@ -3,10 +3,12 @@ import express from "express";
 import multer from "multer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
 import { getBookedDates, createCalendarEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
 import { sendBookingConfirmation } from "./server/email.js";
+import { runPaymentReminderSweep } from "./server/paymentReminders.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -339,6 +341,48 @@ app.post("/api/jotform-hook", upload.none(), async (req, res) => {
     return res.status(200).json({ ok: true, error: "logged" });
   }
 });
+
+// --- 30-day payment reminder sweep (manual trigger + daily schedule) ---
+// Shares JOTFORM_WEBHOOK_SECRET (or CRON_SECRET) so only an authorized caller
+// can trigger it. POST /api/cron/payment-reminders?token=...&dryRun=1
+const CRON_SECRET = process.env.CRON_SECRET || process.env.JOTFORM_WEBHOOK_SECRET || "";
+
+app.post("/api/cron/payment-reminders", async (req, res) => {
+  if (CRON_SECRET) {
+    const token = req.query.token || req.headers["x-cron-token"];
+    if (token !== CRON_SECRET) {
+      console.warn("[cron] payment-reminders rejected: bad/missing token");
+      return res.status(401).json({ ok: false });
+    }
+  }
+  try {
+    const dryRun = req.query.dryRun === "1" || req.query.dryRun === "true";
+    const summary = await runPaymentReminderSweep({ dryRun });
+    return res.status(200).json({ ok: true, summary });
+  } catch (err) {
+    console.error("[cron] payment-reminders failed:", err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Daily in-process schedule. Default 9:00am Eastern; override with
+// PAYMENT_REMINDER_CRON (5-field cron) / EVENT_TIMEZONE.
+const REMINDER_CRON = process.env.PAYMENT_REMINDER_CRON || "0 9 * * *";
+const REMINDER_TZ = process.env.EVENT_TIMEZONE || "America/New_York";
+if (cron.validate(REMINDER_CRON)) {
+  cron.schedule(
+    REMINDER_CRON,
+    () => {
+      runPaymentReminderSweep().catch((err) =>
+        console.error("[cron] scheduled payment-reminders failed:", err.message)
+      );
+    },
+    { timezone: REMINDER_TZ }
+  );
+  console.log(`[cron] payment reminders scheduled "${REMINDER_CRON}" (${REMINDER_TZ})`);
+} else {
+  console.warn(`[cron] invalid PAYMENT_REMINDER_CRON "${REMINDER_CRON}" — daily sweep disabled`);
+}
 
 // --- Serve the built front-end (production) ---
 const distDir = path.join(__dirname, "dist");

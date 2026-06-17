@@ -191,9 +191,65 @@ export async function createCalendarEvent(booking) {
         private: {
           jvoSource: "website",
           ...(submissionId ? { jotformId: submissionId } : {}),
+          // Stamp the guest contact so the payment-reminder sweep can find who
+          // to email without re-parsing the human-readable description.
+          ...(booking.email ? { guestEmail: String(booking.email) } : {}),
+          ...(booking.name ? { guestName: String(booking.name) } : {}),
         },
       },
     },
   });
   return { configured: true, created: true, id: created.id, htmlLink: created.htmlLink };
+}
+
+/** Pull "Email:" / "Phone:" style lines back out of an event description. */
+function fieldFromDescription(description, label) {
+  const re = new RegExp(`^${label}:\\s*(.+)$`, "im");
+  const m = String(description || "").match(re);
+  return m ? m[1].trim() : "";
+}
+
+/**
+ * List the website-created bookings that fall on a specific calendar date, with
+ * the guest contact info needed to email them. Used by the payment-reminder
+ * sweep. Reads guestEmail/guestName from extendedProperties when present and
+ * falls back to parsing the description for older events.
+ *
+ * @param {string} ymd - target date, YYYY-MM-DD
+ * @returns {Promise<{configured:boolean, bookings:Array<object>}>}
+ */
+export async function getBookingsForDate(ymd) {
+  if (!CALENDAR_ID || !SA_JSON) return { configured: false, bookings: [] };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd))) {
+    throw new Error(`getBookingsForDate: invalid date "${ymd}"`);
+  }
+  const calendar = await getCalendarClient();
+  const { data } = await calendar.events.list({
+    calendarId: CALENDAR_ID,
+    privateExtendedProperty: ["jvoSource=website"],
+    timeMin: new Date(`${ymd}T00:00:00Z`).toISOString(),
+    timeMax: new Date(`${addDays(ymd, 1)}T00:00:00Z`).toISOString(),
+    singleEvents: true,
+    maxResults: 50,
+  });
+
+  const bookings = [];
+  for (const ev of data.items || []) {
+    if (ev.status === "cancelled") continue;
+    // Only events that actually occupy this date (all-day holds start on it).
+    if (!datesForEvent(ev).includes(ymd)) continue;
+    const priv = ev.extendedProperties?.private || {};
+    const email = priv.guestEmail || fieldFromDescription(ev.description, "Email");
+    if (!email) continue; // can't remind without an address
+    bookings.push({
+      calendarEventId: ev.id,
+      name: priv.guestName || (ev.summary || "").split("—")[1]?.replace(/\(.*\)/, "").trim() || "Guest",
+      email,
+      phone: fieldFromDescription(ev.description, "Phone"),
+      eventDate: ymd,
+      eventType: fieldFromDescription(ev.description, "Event type"),
+      submissionId: priv.jotformId || "",
+    });
+  }
+  return { configured: true, bookings };
 }
