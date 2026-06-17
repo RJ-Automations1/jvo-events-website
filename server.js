@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createDeskworksReservation } from "./server/deskworks.js";
 import { getBookedDates, createCalendarEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
+import { sendBookingConfirmation } from "./server/email.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -164,7 +165,7 @@ async function processBooking(rawBooking) {
     ...rawBooking,
     space: (rawBooking.space && String(rawBooking.space).trim()) || DEFAULT_SPACE,
   };
-  const result = { deskworks: null, calendar: null, errors: [] };
+  const result = { deskworks: null, calendar: null, email: null, errors: [] };
 
   try {
     result.deskworks = await createDeskworksReservation(booking);
@@ -178,6 +179,17 @@ async function processBooking(rawBooking) {
   } catch (err) {
     console.error("[processBooking] calendar failed:", err.message);
     result.errors.push(`calendar: ${err.message}`);
+  }
+
+  // Only send the confirmation once the booking actually landed somewhere
+  // (Deskworks or the calendar). Best-effort — a mail failure never fails a booking.
+  if (result.deskworks || result.calendar) {
+    try {
+      result.email = await sendBookingConfirmation(booking);
+    } catch (err) {
+      console.error("[processBooking] confirmation email failed:", err.message);
+      result.errors.push(`email: ${err.message}`);
+    }
   }
 
   return result;

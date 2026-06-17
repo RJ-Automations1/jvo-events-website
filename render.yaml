@@ -34,3 +34,13 @@ services:
         sync: false
       - key: JOTFORM_API_KEY
         sync: false
+      # Booking confirmation email (SMTP). For Gmail, SMTP_PASS must be a
+      # 16-char App Password, not the normal account password.
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_REPLY_TO
+        sync: false
