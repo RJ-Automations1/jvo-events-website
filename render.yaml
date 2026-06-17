@@ -25,6 +25,10 @@ services:
         value: "32"
       - key: DESKWORKS_IGNORE_WEEKDAYS
         value: "6"
+      # Flip to "true" once a write-scoped Deskworks token + create endpoint
+      # are in place. Until then the site runs calendar-only.
+      - key: DESKWORKS_WRITE_ENABLED
+        value: "false"
       # JotForm submission webhook → auto-book Deskworks + Google Calendar
       - key: JOTFORM_WEBHOOK_SECRET
         sync: false

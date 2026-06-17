@@ -29,6 +29,13 @@ const CREATE_PATH =
 // Local start hour for the booking block (24h). Half/full-day length is added.
 const DEFAULT_START_HOUR = Number(process.env.DESKWORKS_DEFAULT_START_HOUR || "10");
 const TIMEZONE = process.env.EVENT_TIMEZONE || "America/New_York";
+// Reservation creation is OFF until Deskworks issues a write-scoped token + the
+// real create endpoint. Calendar-only mode runs until then. Flip on by setting
+// DESKWORKS_WRITE_ENABLED=true (and swapping in the write token) — no redeploy
+// of code needed, just the env var.
+const WRITE_ENABLED = /^(1|true|yes|on)$/i.test(
+  process.env.DESKWORKS_WRITE_ENABLED || ""
+);
 
 /**
  * Map our booking package id to an estimated duration. Adjust to match the
@@ -81,10 +88,11 @@ export async function createDeskworksReservation(booking) {
     notes: booking.message || null,
   };
 
-  // When unconfigured (no key/base URL), no-op safely so the rest of the
-  // booking flow (e.g. the calendar hold) still runs in dev / partial setups.
-  if (!configured) {
-    console.log("[deskworks] not configured — skipping reservation create:", reservation);
+  // Calendar-only mode: skip the create cleanly (no doomed POST / 404 noise)
+  // until a write-scoped token is in place and DESKWORKS_WRITE_ENABLED is set.
+  if (!configured || !WRITE_ENABLED) {
+    const why = !configured ? "not configured" : "write disabled (calendar-only mode)";
+    console.log(`[deskworks] reservation create skipped — ${why}:`, reservation);
     return { ok: true, skipped: true };
   }
 
