@@ -163,8 +163,10 @@ export async function createCalendarEvent(booking) {
   }
 
   const name = booking.name || "Guest";
+  const space = booking.space || "Outdoor Event Center";
   const pkg = booking.package ? ` · ${booking.package}` : "";
   const description = [
+    `Space: ${space}`,
     booking.email ? `Email: ${booking.email}` : null,
     booking.phone ? `Phone: ${booking.phone}` : null,
     booking.eventType ? `Event type: ${booking.eventType}` : null,
@@ -179,7 +181,8 @@ export async function createCalendarEvent(booking) {
   const { data: created } = await calendar.events.insert({
     calendarId: CALENDAR_ID,
     requestBody: {
-      summary: `Booked (deposit pending) — ${name}${pkg}`,
+      // Lead with the space so it's scannable on a multi-space calendar.
+      summary: `${space} — ${name}${pkg} (deposit pending)`,
       description,
       start: { date: eventDate },
       end: { date: addDays(eventDate, 1) },

@@ -82,6 +82,7 @@ export async function createDeskworksReservation(booking) {
     endDateTime,
     durationHours,
     timezone: TIMEZONE,
+    space: booking.space || "Outdoor Event Center",
     package: booking.package,
     eventType: booking.eventType || null,
     guestCount: booking.guestCount ? Number(booking.guestCount) : null,

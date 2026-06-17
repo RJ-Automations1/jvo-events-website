@@ -14,6 +14,10 @@ const PORT = process.env.PORT || 8787;
 // Parser for JotForm's multipart/form-data webhook (text fields only).
 const upload = multer();
 
+// Which space the booking is for. This site books the Outdoor Event Center; if
+// the form starts collecting a space/venue choice, it carries through instead.
+const DEFAULT_SPACE = process.env.DEFAULT_SPACE || "Outdoor Event Center";
+
 app.use(express.json());
 
 /**
@@ -127,6 +131,7 @@ app.post("/api/book", async (req, res) => {
       eventDate: String(b.eventDate).trim(),
       eventType: b.eventType ? String(b.eventType).trim() : "",
       package: String(b.package).trim(),
+      space: b.space ? String(b.space).trim() : "",
       guestCount: b.guestCount ? String(b.guestCount).trim() : "",
       message: b.message ? String(b.message).trim() : "",
     });
@@ -152,7 +157,13 @@ app.post("/api/book", async (req, res) => {
  * the other (so the date gets blocked even if Deskworks errors) and collect the
  * errors. Returns { deskworks, calendar, errors }.
  */
-async function processBooking(booking) {
+async function processBooking(rawBooking) {
+  // Always stamp the space so both the Deskworks reservation and the calendar
+  // hold say which space (default Outdoor Event Center).
+  const booking = {
+    ...rawBooking,
+    space: (rawBooking.space && String(rawBooking.space).trim()) || DEFAULT_SPACE,
+  };
   const result = { deskworks: null, calendar: null, errors: [] };
 
   try {
@@ -220,6 +231,7 @@ const JF_KEYWORDS = {
   phone: ["phone", "phonenumber", "mobile", "contactnumber"],
   eventDate: ["eventdate", "dateofevent", "eventday", "date"],
   package: ["package", "eventpackage", "rentalpackage", "selectpackage"],
+  space: ["space", "venue", "whichspace", "eventspace", "selectspace", "rentalspace", "whichroom"],
   eventType: ["eventtype", "typeofevent", "typeof", "occasion"],
   guestCount: ["guestcount", "numberofguests", "guests", "numberof", "headcount"],
   message: ["message", "additionalcomments", "comments", "notes", "details", "tellus"],
@@ -233,6 +245,7 @@ function mapJotformSubmission(raw, body) {
     phone: "",
     eventDate: "",
     package: "",
+    space: "",
     eventType: "",
     guestCount: "",
     message: "",
