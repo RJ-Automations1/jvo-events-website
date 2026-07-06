@@ -5,9 +5,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
-import { getBookedDates, createCalendarEvent } from "./server/googleCalendar.js";
+import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
-import { sendBookingConfirmation } from "./server/email.js";
+import { sendBookingConfirmation, sendTourConfirmation, sendTourNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -150,6 +150,89 @@ app.post("/api/book", async (req, res) => {
     return res.status(502).json({
       error:
         "We couldn't complete your booking right now. Please try again shortly or email jonesborovirtualoffice@gmail.com.",
+    });
+  }
+});
+
+// --- Book a Tour: schedule a timed visit that lands on the JVO calendar ---
+// Tours run Mon–Fri, 9:00 AM–5:00 PM in 30-minute slots (last start 4:30 PM).
+// Kept in sync with the front-end slot list in src/pages/Tour.tsx.
+const TOUR_ALLOWED_WEEKDAYS = new Set([1, 2, 3, 4, 5]); // 1=Mon … 5=Fri
+const TOUR_SLOTS = (() => {
+  const slots = [];
+  for (let mins = 9 * 60; mins <= 16 * 60 + 30; mins += 30) {
+    const p = (n) => String(n).padStart(2, "0");
+    slots.push(`${p(Math.floor(mins / 60))}:${p(mins % 60)}`);
+  }
+  return new Set(slots); // "09:00" … "16:30"
+})();
+
+/** Weekday (0=Sun … 6=Sat) of a YYYY-MM-DD date, timezone-safe. */
+function weekdayOf(ymd) {
+  const [y, m, d] = String(ymd).split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** Tour scheduling endpoint — validates the slot, then creates a calendar hold + emails. */
+app.post("/api/book-tour", async (req, res) => {
+  const b = req.body || {};
+
+  const required = ["name", "email", "tourDate", "tourTime"];
+  const missing = required.filter((k) => !b[k] || String(b[k]).trim() === "");
+  if (missing.length) {
+    return res.status(400).json({ error: `Missing required field(s): ${missing.join(", ")}` });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email))) {
+    return res.status(400).json({ error: "Please provide a valid email address." });
+  }
+
+  const tourDate = String(b.tourDate).trim().slice(0, 10);
+  const tourTime = String(b.tourTime).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tourDate)) {
+    return res.status(400).json({ error: "Please choose a valid tour date." });
+  }
+  if (!TOUR_SLOTS.has(tourTime)) {
+    return res.status(400).json({ error: "Please choose an available tour time." });
+  }
+  // No tours in the past, and weekdays only.
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  if (tourDate < todayYmd) {
+    return res.status(400).json({ error: "Please choose a future date for your tour." });
+  }
+  if (!TOUR_ALLOWED_WEEKDAYS.has(weekdayOf(tourDate))) {
+    return res.status(400).json({ error: "Tours are available Monday through Friday." });
+  }
+
+  const tour = {
+    name: String(b.name).trim(),
+    email: String(b.email).trim(),
+    phone: b.phone ? String(b.phone).trim() : "",
+    tourDate,
+    tourTime,
+    message: b.message ? String(b.message).trim() : "",
+  };
+
+  try {
+    const calendar = await createTourEvent(tour);
+    if (!calendar.configured) {
+      // Calendar not set up — can't actually schedule anything.
+      throw new Error("calendar not configured");
+    }
+
+    // Best-effort emails — never fail a booked tour because mail hiccuped.
+    const [guest, venue] = await Promise.allSettled([
+      sendTourConfirmation(tour),
+      sendTourNotification(tour),
+    ]);
+    if (guest.status === "rejected") console.error("[/api/book-tour] guest email:", guest.reason?.message);
+    if (venue.status === "rejected") console.error("[/api/book-tour] venue email:", venue.reason?.message);
+
+    return res.status(200).json({ ok: true, htmlLink: calendar.htmlLink ?? null });
+  } catch (err) {
+    console.error("[/api/book-tour] failed:", err);
+    return res.status(502).json({
+      error:
+        "We couldn't schedule your tour right now. Please try again shortly or email jonesborovirtualoffice@gmail.com.",
     });
   }
 });

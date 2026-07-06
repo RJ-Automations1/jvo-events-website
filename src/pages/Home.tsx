@@ -158,6 +158,9 @@ export default function Home() {
               <Link to="/book" className="btn-white">
                 Book Event
               </Link>
+              <Link to="/tour" className="btn-outline">
+                Book a Tour
+              </Link>
               <Link to="/gallery" className="btn-outline">
                 View Space
               </Link>

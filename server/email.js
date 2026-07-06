@@ -68,6 +68,16 @@ function prettyDate(ymd) {
   return `${weekday}, ${MONTHS[mo - 1]} ${d}, ${y}`;
 }
 
+/** Format a 24h "HH:MM" clock string as "2:30 PM". */
+function prettyTime(hhmm) {
+  const m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return String(hhmm || "").trim();
+  let h = Number(m[1]);
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${m[2]} ${ampm}`;
+}
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -294,6 +304,139 @@ export async function sendBookingConfirmation(booking) {
     subject: `Your JVO Events reservation is confirmed — ${dateStr}`,
     text: buildText(firstName, dateStr),
     html: buildHtml(firstName, dateStr),
+  });
+
+  return { configured: true, sent: true };
+}
+
+function buildTourText(name, dateStr, timeStr) {
+  return `Hi ${name},
+
+Thank you for scheduling a tour with JVO Events. Your tour of the Outdoor Event Center is confirmed for:
+
+${dateStr} at ${timeStr}
+
+We'll meet you at the venue in Jonesboro, Georgia. The tour takes about 30 minutes — come with any questions about pricing, packages, and how you'd like to use the space.
+
+Need to reschedule or can't make it? Just reply to this email or reach us at ${MAIL_REPLY_TO}.
+
+We look forward to showing you around!
+
+— JVO Events
+Jonesboro, Georgia
+jvoevents.com`;
+}
+
+function buildTourHtml(name, dateStr, timeStr) {
+  const safeName = escapeHtml(name);
+  const safeWhen = escapeHtml(`${dateStr} · ${timeStr}`);
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f2ee;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2ee;padding:28px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e7e2d8;">
+            <tr>
+              <td style="background:#0b0b0b;padding:30px 36px;text-align:center;">
+                <div style="font-family:Georgia,'Times New Roman',serif;color:#ffffff;font-size:24px;letter-spacing:1px;">JVO Events</div>
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#c9a96a;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:6px;">Tour Confirmed</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:36px 36px 8px 36px;font-family:Arial,Helvetica,sans-serif;color:#2b2b2b;">
+                <p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${safeName},</p>
+                <p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
+                  Thank you for scheduling a tour with <strong>JVO Events</strong>. Your tour of the
+                  Outdoor Event Center is <strong>confirmed</strong> for:
+                </p>
+                <p style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:#0b0b0b;background:#f7f4ee;border-left:3px solid #c9a96a;padding:14px 18px;margin:0 0 22px 0;">
+                  ${safeWhen}
+                </p>
+                <p style="font-size:16px;line-height:1.6;margin:0 0 22px 0;">
+                  We'll meet you at the venue in Jonesboro, Georgia. The tour takes about
+                  <strong>30 minutes</strong> — come with any questions about pricing, packages,
+                  and how you'd like to use the space.
+                </p>
+                <p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;color:#555;">
+                  Need to reschedule or can't make it? Just reply to this email or reach us at
+                  <a href="mailto:${escapeHtml(MAIL_REPLY_TO)}" style="color:#9a7b35;">${escapeHtml(MAIL_REPLY_TO)}</a>.
+                </p>
+                <p style="font-size:16px;line-height:1.6;margin:0 0 4px 0;">We look forward to showing you around!</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 36px 32px 36px;font-family:Georgia,'Times New Roman',serif;color:#0b0b0b;">
+                <div style="border-top:1px solid #e7e2d8;padding-top:18px;font-size:15px;">
+                  — JVO Events<br>
+                  <span style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#777;">jvoevents.com</span>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+/**
+ * Send the tour confirmation to the guest. Resolves to { configured, sent,
+ * skipped? } and only throws on an actual SMTP send failure.
+ * @param {object} tour - { name, email, tourDate (YYYY-MM-DD), tourTime ("HH:MM") }
+ */
+export async function sendTourConfirmation(tour) {
+  const t = getTransporter();
+  if (!t) {
+    console.warn("[email] SMTP not configured — skipping tour confirmation.");
+    return { configured: false, sent: false };
+  }
+  const name = (tour.name || "there").trim() || "there";
+  const firstName = name.split(/\s+/)[0];
+  const dateStr = prettyDate(tour.tourDate);
+  const timeStr = prettyTime(tour.tourTime);
+  const to = (tour.email || "").trim();
+  if (!to) return { configured: true, sent: false, skipped: "no recipient" };
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to,
+    replyTo: MAIL_REPLY_TO,
+    subject: `Your JVO Events tour is confirmed — ${dateStr} at ${timeStr}`,
+    text: buildTourText(firstName, dateStr, timeStr),
+    html: buildTourHtml(firstName, dateStr, timeStr),
+  });
+
+  return { configured: true, sent: true };
+}
+
+/**
+ * Notify JVO (the venue) that a guest booked a tour. Sent to MAIL_REPLY_TO.
+ * @param {object} tour - { name, email, phone?, tourDate, tourTime, message? }
+ */
+export async function sendTourNotification(tour) {
+  const t = getTransporter();
+  if (!t) return { configured: false, sent: false };
+  const dateStr = prettyDate(tour.tourDate);
+  const timeStr = prettyTime(tour.tourTime);
+  const lines = [
+    `New tour booked for ${dateStr} at ${timeStr}.`,
+    "",
+    `Name:  ${tour.name || "—"}`,
+    `Email: ${tour.email || "—"}`,
+    `Phone: ${tour.phone || "—"}`,
+    tour.message ? `Notes: ${tour.message}` : null,
+    "",
+    "It's on the JVO Google Calendar as a 30-minute appointment.",
+  ].filter((l) => l !== null);
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to: MAIL_REPLY_TO,
+    replyTo: (tour.email || "").trim() || MAIL_REPLY_TO,
+    subject: `New tour: ${tour.name || "Guest"} — ${dateStr} at ${timeStr}`,
+    text: lines.join("\n"),
   });
 
   return { configured: true, sent: true };

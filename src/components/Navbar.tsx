@@ -70,6 +70,9 @@ export default function Navbar() {
                 {l.label}
               </NavLink>
             ))}
+            <Link to="/tour" className="btn-outline" style={{ padding: "0.7rem 1.6rem" }}>
+              Book a Tour
+            </Link>
             <Link to="/book" className="btn-white" style={{ padding: "0.7rem 1.6rem" }}>
               Book Now
             </Link>
@@ -123,7 +126,10 @@ export default function Navbar() {
               {l.label}
             </NavLink>
           ))}
-          <Link to="/book" className="btn-white text-center mt-1">
+          <Link to="/tour" className="btn-outline text-center mt-1">
+            Book a Tour
+          </Link>
+          <Link to="/book" className="btn-white text-center">
             Book Now
           </Link>
         </div>

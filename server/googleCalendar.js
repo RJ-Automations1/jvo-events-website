@@ -31,6 +31,12 @@
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || "";
 const SA_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
 
+// Timezone the venue operates in (Jonesboro, GA → Eastern). Used to stamp tour
+// appointments at their correct local time. Shared with the payment-reminder math.
+const EVENT_TZ = process.env.EVENT_TIMEZONE || "America/New_York";
+// Length of a booked tour, in minutes (Mon–Fri, 30-minute slots by default).
+const TOUR_DURATION_MIN = Number(process.env.TOUR_DURATION_MIN || "30");
+
 let calendarClientPromise = null;
 
 /**
@@ -202,6 +208,103 @@ export async function createCalendarEvent(booking) {
   return { configured: true, created: true, id: created.id, htmlLink: created.htmlLink };
 }
 
+/** Add `mins` minutes to an "HH:MM" clock string, returning "HH:MM" (same day). */
+function addMinutesToHHMM(hhmm, mins) {
+  const [h, m] = String(hhmm).split(":").map(Number);
+  const total = h * 60 + m + mins;
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(Math.floor(total / 60) % 24)}:${p(total % 60)}`;
+}
+
+/**
+ * Create a TIMED tour appointment on the booking calendar. Unlike an event
+ * booking (an all-day hold that blocks the whole date), a tour is a short slot
+ * at a specific local time and is marked `transparent` so it does NOT grey the
+ * date out for event bookings — getBookedDates() skips transparent events.
+ *
+ * The event lands on the shared JVO calendar (which the owner sees in their own
+ * Google Calendar). Idempotent per (date, time, guest email) so a double submit
+ * doesn't create two appointments.
+ *
+ * @param {object} tour - { name, email, phone?, tourDate (YYYY-MM-DD),
+ *   tourTime ("HH:MM", 24h local), message? }
+ * @returns {Promise<{configured:boolean, created:boolean, duplicate?:boolean, id?:string, htmlLink?:string}>}
+ */
+export async function createTourEvent(tour) {
+  if (!CALENDAR_ID || !SA_JSON) {
+    return { configured: false, created: false };
+  }
+  const date = String(tour.tourDate).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new Error(`createTourEvent: invalid tourDate "${tour.tourDate}"`);
+  }
+  const time = String(tour.tourTime || "").trim();
+  if (!/^\d{2}:\d{2}$/.test(time)) {
+    throw new Error(`createTourEvent: invalid tourTime "${tour.tourTime}"`);
+  }
+  const email = tour.email ? String(tour.email).trim() : "";
+  const calendar = await getCalendarClient();
+
+  // Idempotency — skip if a website tour for this guest already exists at this start.
+  try {
+    const { data } = await calendar.events.list({
+      calendarId: CALENDAR_ID,
+      privateExtendedProperty: ["jvoSource=website", "jvoType=tour"],
+      timeMin: new Date(`${date}T00:00:00Z`).toISOString(),
+      timeMax: new Date(`${addDays(date, 1)}T00:00:00Z`).toISOString(),
+      singleEvents: true,
+      maxResults: 50,
+    });
+    const existing = (data.items || []).find(
+      (e) =>
+        e.status !== "cancelled" &&
+        (e.start?.dateTime || "").slice(11, 16) === time &&
+        (e.extendedProperties?.private?.guestEmail || "") === email
+    );
+    if (existing) {
+      return { configured: true, created: false, duplicate: true, id: existing.id, htmlLink: existing.htmlLink };
+    }
+  } catch {
+    // Fall through and attempt creation if the dedup lookup fails.
+  }
+
+  const name = tour.name || "Guest";
+  const description = [
+    "Tour of the Outdoor Event Center.",
+    email ? `Email: ${email}` : null,
+    tour.phone ? `Phone: ${tour.phone}` : null,
+    tour.message ? `Notes: ${tour.message}` : null,
+    "",
+    "Requested automatically from the JVO website tour scheduler.",
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+
+  const { data: created } = await calendar.events.insert({
+    calendarId: CALENDAR_ID,
+    requestBody: {
+      summary: `Tour — ${name}`,
+      description,
+      start: { dateTime: `${date}T${time}:00`, timeZone: EVENT_TZ },
+      end: {
+        dateTime: `${date}T${addMinutesToHHMM(time, TOUR_DURATION_MIN)}:00`,
+        timeZone: EVENT_TZ,
+      },
+      // Transparent so a tour never blocks the date for event bookings.
+      transparency: "transparent",
+      extendedProperties: {
+        private: {
+          jvoSource: "website",
+          jvoType: "tour",
+          ...(email ? { guestEmail: email } : {}),
+          ...(tour.name ? { guestName: String(tour.name) } : {}),
+        },
+      },
+    },
+  });
+  return { configured: true, created: true, id: created.id, htmlLink: created.htmlLink };
+}
+
 /** Pull "Email:" / "Phone:" style lines back out of an event description. */
 function fieldFromDescription(description, label) {
   const re = new RegExp(`^${label}:\\s*(.+)$`, "im");
@@ -236,9 +339,11 @@ export async function getBookingsForDate(ymd) {
   const bookings = [];
   for (const ev of data.items || []) {
     if (ev.status === "cancelled") continue;
+    const priv = ev.extendedProperties?.private || {};
+    // Tours are timed website appointments, not event bookings — never remind them.
+    if (priv.jvoType === "tour") continue;
     // Only events that actually occupy this date (all-day holds start on it).
     if (!datesForEvent(ev).includes(ymd)) continue;
-    const priv = ev.extendedProperties?.private || {};
     const email = priv.guestEmail || fieldFromDescription(ev.description, "Email");
     if (!email) continue; // can't remind without an address
     bookings.push({

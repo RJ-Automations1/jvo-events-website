@@ -6,6 +6,7 @@ import Contact from "@/pages/Contact";
 import Corporate from "@/pages/Corporate";
 import Testimonials from "@/pages/Testimonials";
 import Book from "@/pages/Book";
+import Tour from "@/pages/Tour";
 import NotFound from "@/pages/NotFound";
 
 /** Scroll to top on every route change. */
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/book" element={<Book />} />
+        <Route path="/tour" element={<Tour />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
