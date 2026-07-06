@@ -28,6 +28,10 @@ const MAIL_FROM =
   process.env.MAIL_FROM || (SMTP_USER ? `JVO Events <${SMTP_USER}>` : "");
 const MAIL_REPLY_TO =
   process.env.MAIL_REPLY_TO || "jonesborovirtualoffice@gmail.com";
+// Absolute URL to the JVO logo (emails can't use relative paths). Served from
+// public/manus-storage/ on the live site; override with LOGO_URL if it moves.
+const LOGO_URL =
+  process.env.LOGO_URL || "https://jvoevents.com/manus-storage/jvo-logo.png";
 
 let transporter = null;
 function getTransporter() {
@@ -338,9 +342,9 @@ function buildTourHtml(name, dateStr, timeStr) {
         <td align="center">
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e7e2d8;">
             <tr>
-              <td style="background:#0b0b0b;padding:30px 36px;text-align:center;">
-                <div style="font-family:Georgia,'Times New Roman',serif;color:#ffffff;font-size:24px;letter-spacing:1px;">JVO Events</div>
-                <div style="font-family:Arial,Helvetica,sans-serif;color:#c9a96a;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:6px;">Tour Confirmed</div>
+              <td style="background:#0b0b0b;padding:28px 36px 26px 36px;text-align:center;">
+                <img src="${LOGO_URL}" width="132" alt="Jonesboro Virtual Offices &amp; Suites" style="display:block;width:132px;max-width:55%;height:auto;margin:0 auto 14px auto;border:0;" />
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#c9a96a;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Tour Confirmed</div>
               </td>
             </tr>
             <tr>
