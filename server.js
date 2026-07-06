@@ -334,6 +334,22 @@ const JF_KEYWORDS = {
   message: ["message", "additionalcomments", "comments", "notes", "details", "tellus"],
 };
 
+// Explicit field pin for the live booking form (JOTFORM_FORM_ID 222155218269153).
+// The heuristic above can't infer these from the field names — e.g. the event
+// date lives in "requestedEvent" (no "date" in it), and there's a separate
+// "q142_date" agreement-signature date the keyword matcher would grab by
+// mistake. Pinning here makes parsing deterministic. Any key set in the
+// JOTFORM_FIELD_MAP env var overrides the matching entry below.
+const DEFAULT_JF_FIELD_MAP = {
+  name: "q3_fullName3",
+  email: "q4_email4",
+  phone: "q6_phoneNumber6",
+  eventDate: "q102_requestedEvent",
+  package: "q17_chooseYour",
+  eventType: "q15_youAre15",
+  guestCount: "q80_expectedNumber",
+};
+
 /** Map a JotForm rawRequest object (+ webhook body) to our booking schema. */
 function mapJotformSubmission(raw, body) {
   const out = {
@@ -349,10 +365,10 @@ function mapJotformSubmission(raw, body) {
     submissionId: body.submissionID || body.submissionId || raw.submissionID || "",
   };
 
-  let explicit = {};
+  let explicit = { ...DEFAULT_JF_FIELD_MAP };
   if (process.env.JOTFORM_FIELD_MAP) {
     try {
-      explicit = JSON.parse(process.env.JOTFORM_FIELD_MAP);
+      explicit = { ...explicit, ...JSON.parse(process.env.JOTFORM_FIELD_MAP) };
     } catch {
       console.warn("[jotform-hook] JOTFORM_FIELD_MAP is not valid JSON; ignoring.");
     }
