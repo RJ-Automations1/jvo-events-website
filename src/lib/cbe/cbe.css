@@ -1,0 +1,450 @@
+/*
+ * CBE Vendor Platform — internal admin theme.
+ *
+ * Deliberately distinct from the dark JVO marketing site: a light, utilitarian
+ * dashboard look on a CBE-blue accent. Everything is scoped under `.cbe-app` so
+ * it never leaks into the events site (whose <body> stays dark).
+ */
+
+.cbe-app {
+  --cbe-blue: #0b4da2;
+  --cbe-blue-dark: #08376f;
+  --cbe-sky: #a5c9eb;
+  --cbe-bg: #f4f6fa;
+  --cbe-surface: #ffffff;
+  --cbe-border: #e2e7f0;
+  --cbe-text: #1a2233;
+  --cbe-muted: #667085;
+  --cbe-green: #1a7f4b;
+  --cbe-amber: #b7791f;
+  --cbe-red: #b42318;
+
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--cbe-bg);
+  color: var(--cbe-text);
+  font-family: "Lato", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cbe-app *,
+.cbe-app *::before,
+.cbe-app *::after {
+  box-sizing: border-box;
+}
+
+.cbe-app a {
+  color: var(--cbe-blue);
+  text-decoration: none;
+}
+.cbe-app a:hover {
+  text-decoration: underline;
+}
+
+/* --- Top navigation --- */
+.cbe-nav {
+  background: var(--cbe-surface);
+  border-bottom: 1px solid var(--cbe-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.cbe-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.cbe-brand {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--cbe-blue-dark);
+  white-space: nowrap;
+}
+.cbe-brand span {
+  color: var(--cbe-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  display: block;
+  letter-spacing: 0.02em;
+}
+.cbe-nav-links {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.cbe-nav-links a {
+  color: var(--cbe-text);
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.cbe-nav-links a:hover {
+  background: #eef2f9;
+  text-decoration: none;
+}
+.cbe-nav-links a.active {
+  background: var(--cbe-blue);
+  color: #fff;
+}
+.cbe-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.cbe-nav-user .who {
+  font-size: 0.85rem;
+  text-align: right;
+  line-height: 1.2;
+}
+.cbe-nav-user .who small {
+  color: var(--cbe-muted);
+  display: block;
+}
+
+.cbe-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+/* --- Buttons --- */
+.cbe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--cbe-blue);
+  color: #fff;
+  border: 1px solid var(--cbe-blue);
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+/* Anchor buttons (<a class="cbe-btn">): beat the generic `.cbe-app a` blue. */
+.cbe-app a.cbe-btn {
+  color: #fff;
+}
+.cbe-app a.cbe-btn.ghost,
+.cbe-app a.cbe-btn.danger {
+  color: var(--cbe-text);
+}
+.cbe-app a.cbe-btn.danger {
+  color: var(--cbe-red);
+}
+.cbe-btn:hover {
+  background: var(--cbe-blue-dark);
+  text-decoration: none;
+}
+.cbe-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.cbe-btn.ghost {
+  background: #fff;
+  color: var(--cbe-text);
+  border-color: var(--cbe-border);
+}
+.cbe-btn.ghost:hover {
+  background: #f2f5fa;
+}
+.cbe-btn.danger {
+  background: #fff;
+  color: var(--cbe-red);
+  border-color: #f0c4c0;
+}
+.cbe-btn.sm {
+  padding: 6px 11px;
+  font-size: 0.82rem;
+}
+
+/* --- Cards & layout --- */
+.cbe-card {
+  background: var(--cbe-surface);
+  border: 1px solid var(--cbe-border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.cbe-grid {
+  display: grid;
+  gap: 16px;
+}
+.cbe-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.cbe-page-head h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--cbe-blue-dark);
+}
+.cbe-page-head p {
+  margin: 4px 0 0;
+  color: var(--cbe-muted);
+  font-size: 0.92rem;
+}
+
+/* --- Stat tiles --- */
+.cbe-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.cbe-stat {
+  background: var(--cbe-surface);
+  border: 1px solid var(--cbe-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.cbe-stat .label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cbe-muted);
+  font-weight: 700;
+}
+.cbe-stat .value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  margin-top: 4px;
+  color: var(--cbe-blue-dark);
+}
+
+/* --- Tables --- */
+.cbe-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--cbe-border);
+  border-radius: 12px;
+  background: var(--cbe-surface);
+}
+.cbe-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 720px;
+}
+.cbe-table th,
+.cbe-table td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cbe-border);
+  vertical-align: middle;
+}
+.cbe-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cbe-muted);
+  background: #fafbfd;
+}
+.cbe-table tbody tr:hover {
+  background: #f7f9fc;
+  cursor: pointer;
+}
+.cbe-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* --- Badges / status pills --- */
+.cbe-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #eef2f9;
+  color: var(--cbe-blue-dark);
+  white-space: nowrap;
+}
+.cbe-badge.green { background: #e3f5ea; color: var(--cbe-green); }
+.cbe-badge.amber { background: #fdf1dd; color: var(--cbe-amber); }
+.cbe-badge.red { background: #fbe9e7; color: var(--cbe-red); }
+.cbe-badge.gray { background: #eceef2; color: var(--cbe-muted); }
+
+/* --- Progress bar --- */
+.cbe-progress {
+  height: 8px;
+  background: #e7ecf4;
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 90px;
+}
+.cbe-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--cbe-blue);
+  border-radius: 999px;
+}
+
+/* --- Forms --- */
+.cbe-field {
+  margin-bottom: 16px;
+}
+.cbe-field label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #34405a;
+}
+.cbe-field .hint {
+  font-weight: 500;
+  color: var(--cbe-muted);
+}
+.cbe-input,
+.cbe-select,
+.cbe-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--cbe-border);
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: #fff;
+  color: var(--cbe-text);
+}
+.cbe-input:focus,
+.cbe-select:focus,
+.cbe-textarea:focus {
+  outline: none;
+  border-color: var(--cbe-blue);
+  box-shadow: 0 0 0 3px rgba(11, 77, 162, 0.12);
+}
+.cbe-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+.cbe-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 20px;
+}
+.cbe-form-grid .full {
+  grid-column: 1 / -1;
+}
+@media (max-width: 640px) {
+  .cbe-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Checklist (onboarding + engagement workflow) --- */
+.cbe-checklist {
+  display: grid;
+  gap: 2px;
+}
+.cbe-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.cbe-check:hover {
+  background: #f5f8fc;
+}
+.cbe-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cbe-blue);
+  cursor: pointer;
+}
+.cbe-check.done {
+  color: var(--cbe-muted);
+}
+.cbe-check.done .lbl {
+  text-decoration: line-through;
+}
+.cbe-check .at {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--cbe-muted);
+}
+
+/* --- Alerts --- */
+.cbe-alert {
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+.cbe-alert.error {
+  background: #fbe9e7;
+  color: var(--cbe-red);
+  border: 1px solid #f0c4c0;
+}
+.cbe-alert.success {
+  background: #e3f5ea;
+  color: var(--cbe-green);
+  border: 1px solid #bfe6cd;
+}
+.cbe-alert.info {
+  background: #eaf1fb;
+  color: var(--cbe-blue-dark);
+  border: 1px solid #cadcf5;
+}
+
+/* --- Login --- */
+.cbe-login {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.cbe-login .box {
+  width: 100%;
+  max-width: 400px;
+}
+.cbe-login .box .cbe-card {
+  padding: 28px;
+}
+
+.cbe-section-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cbe-muted);
+  font-weight: 800;
+  margin: 0 0 12px;
+}
+
+.cbe-muted {
+  color: var(--cbe-muted);
+}
+.cbe-spinner {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--cbe-muted);
+}
+
+/* Document chips */
+.cbe-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef2f9;
+  border: 1px solid var(--cbe-border);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  margin: 0 6px 6px 0;
+}

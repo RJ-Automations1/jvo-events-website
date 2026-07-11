@@ -65,6 +65,54 @@ Until set, every date shows available (the endpoint returns an empty booked
 list). Endpoints: `GET /api/availability` (booked dates) and `/api/book`
 rejects a date that's already taken.
 
+## CBE Vendor Onboarding & Payment Tracking Platform
+
+A self-contained internal platform for the **Center for Black Entrepreneurship**
+lives alongside the events site. It's a Phase I framework for tracking every
+vendor from onboarding through final payment.
+
+- **UI:** `/cbe` (login at `/cbe/login`) — a light admin theme, distinct from the
+  dark marketing site.
+- **API:** `/api/cbe/*` (Express router in `server/cbe/`).
+- **Storage:** a JSON file (`server/cbe/data/`) + uploaded documents
+  (`server/cbe/uploads/`), both gitignored. Persistence is isolated in
+  `server/cbe/store.js` so it can be swapped for a database later.
+
+### What it does (Phase I)
+
+- **Master Dashboard** — vendor counts, dollars requested/paid/outstanding,
+  onboarding progress, and a searchable/filterable vendor table.
+- **Program-specific views** — filter the dashboard by program; a per-program
+  roll-up table. Programs: LIFT ATL, LIFT National, Scholars, Research Fellows,
+  Sparkhouse, Spelpreneur, I-Corps, General CBE.
+- **Role-based access** — `leadership` sees all programs; `pm` sees only assigned
+  programs. Enforced server-side on every read and write.
+- **New-vendor onboarding** — permanent profile + demographics + document uploads
+  (W-9, ACH, application…) with an 8-step onboarding checklist.
+- **Returning-vendor payment requests** — search an existing vendor and log a new
+  engagement without re-onboarding; the profile is preserved.
+- **Engagement / payment tracking** — an 18-step workflow checklist per
+  engagement (invitation letter → ICA → SSJD → invoice → requisition → payment
+  complete), finance reference numbers (Req/PO/SQ/BO), and amounts.
+- **Cognito Forms webhook** — `POST /api/cbe/cognito-hook` auto-creates a vendor
+  or a returning-vendor payment request from a form submission.
+
+### Setup
+
+Configure staff logins and (optionally) the webhook secret in the environment —
+see the **CBE** block in `.env.example`. Minimum to go live:
+
+```bash
+CBE_USERS=[{"email":"tiera@cbecenter.org","name":"Tiera Holmes","role":"leadership","password":"a-strong-password"}]
+CBE_COGNITO_SECRET=some-long-random-string   # if using the Cognito webhook
+```
+
+With nothing set, a dev-only login (`admin@cbecenter.org` / `changeme`) is created
+so the platform is usable locally. **Set `CBE_USERS` before production use.**
+
+On Render's ephemeral filesystem, point `CBE_DATA_FILE` / `CBE_UPLOAD_DIR` at a
+mounted persistent disk so vendor data survives redeploys.
+
 ## Adding your images
 
 Drop photos into `public/manus-storage/` (see the README there). The hero uses

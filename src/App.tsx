@@ -8,6 +8,13 @@ import Testimonials from "@/pages/Testimonials";
 import Book from "@/pages/Book";
 import Tour from "@/pages/Tour";
 import NotFound from "@/pages/NotFound";
+import { CbeAuthProvider } from "@/lib/cbe/auth";
+import CbeLogin from "@/pages/cbe/Login";
+import CbeDashboard from "@/pages/cbe/Dashboard";
+import NewVendor from "@/pages/cbe/NewVendor";
+import ReturningVendor from "@/pages/cbe/ReturningVendor";
+import VendorDetail from "@/pages/cbe/VendorDetail";
+import "@/lib/cbe/cbe.css";
 
 /** Scroll to top on every route change. */
 function ScrollToTop() {
@@ -31,6 +38,24 @@ export default function App() {
         <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/book" element={<Book />} />
         <Route path="/tour" element={<Tour />} />
+
+        {/* CBE Vendor Onboarding & Payment Tracking Platform (internal) */}
+        <Route
+          path="/cbe/*"
+          element={
+            <CbeAuthProvider>
+              <Routes>
+                <Route path="login" element={<CbeLogin />} />
+                <Route index element={<CbeDashboard />} />
+                <Route path="vendors/new" element={<NewVendor />} />
+                <Route path="vendors/:id" element={<VendorDetail />} />
+                <Route path="returning" element={<ReturningVendor />} />
+                <Route path="*" element={<CbeDashboard />} />
+              </Routes>
+            </CbeAuthProvider>
+          }
+        />
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
