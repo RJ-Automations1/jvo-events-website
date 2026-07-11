@@ -34,10 +34,13 @@ export default function CbeLogin() {
     <CbeFrame>
       <div className="cbe-login">
         <div className="box">
-          <div style={{ textAlign: "center", marginBottom: 22 }}>
-            <div className="cbe-brand" style={{ fontSize: "1.3rem" }}>
-              CBE Vendor Platform
-              <span>Center for Black Entrepreneurship</span>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 22 }}>
+            <div className="cbe-brand" style={{ fontSize: "1.3rem", alignItems: "center", textAlign: "center" }}>
+              <img src="/cbe/cbe-mark.svg" alt="CBE" />
+              <div>
+                CBE Vendor Platform
+                <span>Center for Black Entrepreneurship</span>
+              </div>
             </div>
           </div>
           <div className="cbe-card">

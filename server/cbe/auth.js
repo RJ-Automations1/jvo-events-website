@@ -62,17 +62,19 @@ function loadUsers() {
     }
   }
   if (!Array.isArray(raw) || raw.length === 0) {
-    // Dev-only default so the platform is usable out of the box. Override in prod
-    // by setting CBE_USERS. Logged loudly so it's never mistaken for secure.
+    // Default login so the platform is usable out of the box. Tiera (Program
+    // Coordinator) gets leadership access to every program. Override the
+    // password with CBE_DEV_PASSWORD, or replace the whole roster with
+    // CBE_USERS. Logged loudly so a real deployment sets a proper secret.
     console.warn(
-      "[cbe-auth] No CBE_USERS configured — using DEV default logins " +
-        "(admin@cbecenter.org / changeme). Set CBE_USERS before production use."
+      "[cbe-auth] No CBE_USERS configured — using the built-in default login " +
+        "(tieraholmes@spelman.edu). Set CBE_DEV_PASSWORD or CBE_USERS to change it."
     );
     raw = [
       {
-        email: "admin@cbecenter.org",
-        name: "CBE Leadership",
-        password: process.env.CBE_DEV_PASSWORD || "changeme",
+        email: "tieraholmes@spelman.edu",
+        name: "Tiera Holmes",
+        password: process.env.CBE_DEV_PASSWORD || "cbe2026",
         role: "leadership",
       },
     ];

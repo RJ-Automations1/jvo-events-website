@@ -14,8 +14,11 @@ function TopNav() {
     <header className="cbe-nav">
       <div className="cbe-nav-inner">
         <div className="cbe-brand">
-          CBE Vendors
-          <span>Center for Black Entrepreneurship</span>
+          <img src="/cbe/cbe-mark.svg" alt="CBE" />
+          <div>
+            CBE Vendors
+            <span>Center for Black Entrepreneurship</span>
+          </div>
         </div>
         <nav className="cbe-nav-links">
           <NavLink to="/cbe" end className={({ isActive }) => (isActive ? "active" : "")}>

@@ -107,11 +107,16 @@ CBE_USERS=[{"email":"tiera@cbecenter.org","name":"Tiera Holmes","role":"leadersh
 CBE_COGNITO_SECRET=some-long-random-string   # if using the Cognito webhook
 ```
 
-With nothing set, a dev-only login (`admin@cbecenter.org` / `changeme`) is created
-so the platform is usable locally. **Set `CBE_USERS` before production use.**
+With nothing set, a built-in leadership login is used
+(`tieraholmes@spelman.edu` / `cbe2026`) so the platform is usable immediately.
+Change the password with `CBE_DEV_PASSWORD`, or define the full staff roster with
+`CBE_USERS`, before this holds real data.
 
-On Render's ephemeral filesystem, point `CBE_DATA_FILE` / `CBE_UPLOAD_DIR` at a
-mounted persistent disk so vendor data survives redeploys.
+**Render free plan caveat:** the free tier has an *ephemeral* filesystem (no
+persistent disk) and sleeps after ~15 min idle, so the CBE data store + uploads
+**reset on every redeploy and cold start**. That's fine for a first-draft/demo.
+Before it holds real vendor records, move to a paid plan with a mounted disk and
+point `CBE_DATA_FILE` / `CBE_UPLOAD_DIR` at it.
 
 ## Adding your images
 

@@ -7,17 +7,21 @@
  */
 
 .cbe-app {
-  --cbe-blue: #0b4da2;
-  --cbe-blue-dark: #08376f;
+  /* CBE brand palette: black, blue, red. Blue is pulled from CBE's own
+     signature/site (#004EBA); red is the collegiate accent. */
+  --cbe-blue: #004eba;
+  --cbe-blue-dark: #003a8c;
+  --cbe-red: #c8102e;
+  --cbe-red-dark: #9e0c24;
+  --cbe-black: #14161c;
   --cbe-sky: #a5c9eb;
-  --cbe-bg: #f4f6fa;
+  --cbe-bg: #f5f6f9;
   --cbe-surface: #ffffff;
-  --cbe-border: #e2e7f0;
-  --cbe-text: #1a2233;
-  --cbe-muted: #667085;
+  --cbe-border: #e3e7ef;
+  --cbe-text: #14161c;
+  --cbe-muted: #5f6b7e;
   --cbe-green: #1a7f4b;
   --cbe-amber: #b7791f;
-  --cbe-red: #b42318;
 
   position: fixed;
   inset: 0;
@@ -42,10 +46,11 @@
   text-decoration: underline;
 }
 
-/* --- Top navigation --- */
+/* --- Top navigation (black bar, blue+red accent underline) --- */
 .cbe-nav {
-  background: var(--cbe-surface);
-  border-bottom: 1px solid var(--cbe-border);
+  background: var(--cbe-black);
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--cbe-blue) 0 62%, var(--cbe-red) 62% 100%) 1;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -54,21 +59,29 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
-  height: 60px;
+  height: 62px;
   display: flex;
   align-items: center;
   gap: 24px;
 }
 .cbe-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
   font-weight: 800;
   font-size: 1.05rem;
-  color: var(--cbe-blue-dark);
+  color: #ffffff;
   white-space: nowrap;
 }
+.cbe-brand img {
+  width: 34px;
+  height: 34px;
+  display: block;
+}
 .cbe-brand span {
-  color: var(--cbe-muted);
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   display: block;
   letter-spacing: 0.02em;
 }
@@ -79,14 +92,15 @@
   flex-wrap: wrap;
 }
 .cbe-nav-links a {
-  color: var(--cbe-text);
+  color: rgba(255, 255, 255, 0.82);
   padding: 7px 12px;
   border-radius: 7px;
   font-size: 0.9rem;
   font-weight: 600;
 }
 .cbe-nav-links a:hover {
-  background: #eef2f9;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
   text-decoration: none;
 }
 .cbe-nav-links a.active {
@@ -103,9 +117,10 @@
   font-size: 0.85rem;
   text-align: right;
   line-height: 1.2;
+  color: #fff;
 }
 .cbe-nav-user .who small {
-  color: var(--cbe-muted);
+  color: rgba(255, 255, 255, 0.55);
   display: block;
 }
 
@@ -191,7 +206,7 @@
 .cbe-page-head h1 {
   margin: 0;
   font-size: 1.6rem;
-  color: var(--cbe-blue-dark);
+  color: var(--cbe-black);
 }
 .cbe-page-head p {
   margin: 4px 0 0;
@@ -416,6 +431,21 @@
 }
 .cbe-login .box .cbe-card {
   padding: 28px;
+  border-top: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--cbe-blue) 0 62%, var(--cbe-red) 62% 100%) 1;
+}
+/* The nav brand text is white; on the light login page it must be dark. */
+.cbe-login .cbe-brand {
+  color: var(--cbe-black);
+  flex-direction: column;
+  gap: 10px;
+}
+.cbe-login .cbe-brand span {
+  color: var(--cbe-muted);
+}
+.cbe-login .cbe-brand img {
+  width: 52px;
+  height: 52px;
 }
 
 .cbe-section-title {
