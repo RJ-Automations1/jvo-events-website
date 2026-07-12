@@ -1,0 +1,659 @@
+/*
+ * CBE Vendor Platform — internal admin theme.
+ *
+ * Deliberately distinct from the dark JVO marketing site: a light, utilitarian
+ * dashboard look on a CBE-blue accent. Everything is scoped under `.cbe-app` so
+ * it never leaks into the events site (whose <body> stays dark).
+ */
+
+.cbe-app {
+  /* CBE brand palette: black, blue, red. Blue is pulled from CBE's own
+     signature/site (#004EBA); red is the collegiate accent. */
+  --cbe-blue: #004eba;
+  --cbe-blue-dark: #003a8c;
+  --cbe-red: #c8102e;
+  --cbe-red-dark: #9e0c24;
+  --cbe-black: #14161c;
+  --cbe-sky: #a5c9eb;
+  --cbe-bg: #ffffff;
+  --cbe-surface: #ffffff;
+  --cbe-border: #e3e7ef;
+  --cbe-shadow: 0 1px 2px rgba(20, 22, 28, 0.04), 0 1px 3px rgba(20, 22, 28, 0.07);
+  --cbe-text: #14161c;
+  --cbe-muted: #5f6b7e;
+  --cbe-green: #1a7f4b;
+  --cbe-amber: #b7791f;
+
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--cbe-bg);
+  color: var(--cbe-text);
+  font-family: "Lato", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cbe-app *,
+.cbe-app *::before,
+.cbe-app *::after {
+  box-sizing: border-box;
+}
+
+.cbe-app a {
+  color: var(--cbe-blue);
+  text-decoration: none;
+}
+.cbe-app a:hover {
+  text-decoration: underline;
+}
+
+/* --- Top navigation (black bar, blue+red accent underline) --- */
+.cbe-nav {
+  background: var(--cbe-black);
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--cbe-blue) 0 62%, var(--cbe-red) 62% 100%) 1;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.cbe-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.cbe-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #ffffff;
+  white-space: nowrap;
+}
+.cbe-brand img {
+  width: 34px;
+  height: 34px;
+  display: block;
+}
+.cbe-brand span {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+  font-size: 0.78rem;
+  display: block;
+  letter-spacing: 0.02em;
+}
+.cbe-nav-links {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.cbe-nav-links a {
+  color: rgba(255, 255, 255, 0.82);
+  padding: 7px 12px;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.cbe-nav-links a:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  text-decoration: none;
+}
+.cbe-nav-links a.active {
+  background: var(--cbe-blue);
+  color: #fff;
+}
+.cbe-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.cbe-nav-user .who {
+  font-size: 0.85rem;
+  text-align: right;
+  line-height: 1.2;
+  color: #fff;
+}
+.cbe-nav-user .who small {
+  color: rgba(255, 255, 255, 0.55);
+  display: block;
+}
+
+.cbe-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+}
+
+/* --- Buttons --- */
+.cbe-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--cbe-blue);
+  color: #fff;
+  border: 1px solid var(--cbe-blue);
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+/* Anchor buttons (<a class="cbe-btn">): beat the generic `.cbe-app a` blue. */
+.cbe-app a.cbe-btn {
+  color: #fff;
+}
+.cbe-app a.cbe-btn.ghost,
+.cbe-app a.cbe-btn.danger {
+  color: var(--cbe-text);
+}
+.cbe-app a.cbe-btn.danger {
+  color: var(--cbe-red);
+}
+.cbe-btn:hover {
+  background: var(--cbe-blue-dark);
+  text-decoration: none;
+}
+.cbe-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.cbe-btn.ghost {
+  background: #fff;
+  color: var(--cbe-text);
+  border-color: var(--cbe-border);
+}
+.cbe-btn.ghost:hover {
+  background: #f2f5fa;
+}
+.cbe-btn.danger {
+  background: #fff;
+  color: var(--cbe-red);
+  border-color: #f0c4c0;
+}
+.cbe-btn.sm {
+  padding: 6px 11px;
+  font-size: 0.82rem;
+}
+
+/* --- Cards & layout --- */
+.cbe-card {
+  background: var(--cbe-surface);
+  border: 1px solid var(--cbe-border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--cbe-shadow);
+}
+.cbe-grid {
+  display: grid;
+  gap: 16px;
+}
+.cbe-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.cbe-page-head h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  color: var(--cbe-black);
+}
+.cbe-page-head p {
+  margin: 4px 0 0;
+  color: var(--cbe-muted);
+  font-size: 0.92rem;
+}
+
+/* --- Stat tiles --- */
+.cbe-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.cbe-stat {
+  background: var(--cbe-surface);
+  border: 1px solid var(--cbe-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: var(--cbe-shadow);
+}
+.cbe-stat .label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cbe-muted);
+  font-weight: 700;
+}
+.cbe-stat .value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  margin-top: 4px;
+  color: var(--cbe-blue-dark);
+}
+
+/* --- Tables --- */
+.cbe-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--cbe-border);
+  border-radius: 12px;
+  background: var(--cbe-surface);
+  box-shadow: var(--cbe-shadow);
+}
+.cbe-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 720px;
+}
+.cbe-table th,
+.cbe-table td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cbe-border);
+  vertical-align: middle;
+}
+.cbe-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cbe-muted);
+  background: #fafbfd;
+}
+.cbe-table tbody tr:hover {
+  background: #f7f9fc;
+  cursor: pointer;
+}
+.cbe-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* --- Badges / status pills --- */
+.cbe-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #eef2f9;
+  color: var(--cbe-blue-dark);
+  white-space: nowrap;
+}
+.cbe-badge.green { background: #e3f5ea; color: var(--cbe-green); }
+.cbe-badge.amber { background: #fdf1dd; color: var(--cbe-amber); }
+.cbe-badge.red { background: #fbe9e7; color: var(--cbe-red); }
+.cbe-badge.gray { background: #eceef2; color: var(--cbe-muted); }
+
+/* --- Progress bar --- */
+.cbe-progress {
+  height: 8px;
+  background: #e7ecf4;
+  border-radius: 999px;
+  overflow: hidden;
+  min-width: 90px;
+}
+.cbe-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--cbe-blue);
+  border-radius: 999px;
+}
+
+/* --- Forms --- */
+.cbe-field {
+  margin-bottom: 16px;
+}
+.cbe-field label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #34405a;
+}
+.cbe-field .hint {
+  font-weight: 500;
+  color: var(--cbe-muted);
+}
+.cbe-input,
+.cbe-select,
+.cbe-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--cbe-border);
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: #fff;
+  color: var(--cbe-text);
+}
+.cbe-input:focus,
+.cbe-select:focus,
+.cbe-textarea:focus {
+  outline: none;
+  border-color: var(--cbe-blue);
+  box-shadow: 0 0 0 3px rgba(11, 77, 162, 0.12);
+}
+.cbe-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+.cbe-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 20px;
+}
+.cbe-form-grid .full {
+  grid-column: 1 / -1;
+}
+@media (max-width: 640px) {
+  .cbe-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Checklist (onboarding + engagement workflow) --- */
+.cbe-checklist {
+  display: grid;
+  gap: 2px;
+}
+.cbe-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.cbe-check:hover {
+  background: #f5f8fc;
+}
+.cbe-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--cbe-blue);
+  cursor: pointer;
+}
+.cbe-check.done {
+  color: var(--cbe-muted);
+}
+.cbe-check.done .lbl {
+  text-decoration: line-through;
+}
+.cbe-check .at {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--cbe-muted);
+}
+
+/* --- Alerts --- */
+.cbe-alert {
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  margin-bottom: 16px;
+}
+.cbe-alert.error {
+  background: #fbe9e7;
+  color: var(--cbe-red);
+  border: 1px solid #f0c4c0;
+}
+.cbe-alert.success {
+  background: #e3f5ea;
+  color: var(--cbe-green);
+  border: 1px solid #bfe6cd;
+}
+.cbe-alert.info {
+  background: #eaf1fb;
+  color: var(--cbe-blue-dark);
+  border: 1px solid #cadcf5;
+}
+
+/* --- Login --- */
+.cbe-login {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+.cbe-login .box {
+  width: 100%;
+  max-width: 400px;
+}
+.cbe-login .box .cbe-card {
+  padding: 28px;
+  border-top: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--cbe-blue) 0 62%, var(--cbe-red) 62% 100%) 1;
+}
+/* The nav brand text is white; on the light login page it must be dark. */
+.cbe-login .cbe-brand {
+  color: var(--cbe-black);
+  flex-direction: column;
+  gap: 10px;
+}
+.cbe-login .cbe-brand span {
+  color: var(--cbe-muted);
+}
+.cbe-login .cbe-brand img {
+  width: 52px;
+  height: 52px;
+}
+
+.cbe-section-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cbe-muted);
+  font-weight: 800;
+  margin: 0 0 12px;
+}
+
+.cbe-muted {
+  color: var(--cbe-muted);
+}
+.cbe-spinner {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--cbe-muted);
+}
+
+/* --- FedEx-style progress tracker --- */
+.cbe-tracker {
+  overflow-x: auto;
+  padding: 6px 2px 2px;
+}
+.cbe-track {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 520px;
+}
+.cbe-track-step {
+  flex: 1;
+  position: relative;
+  padding-top: 40px;
+  text-align: center;
+}
+/* connector line entering each step from the previous node */
+.cbe-track-step::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: 50%;
+  width: 100%;
+  height: 3px;
+  background: var(--cbe-border);
+}
+.cbe-track-step:first-child::before {
+  display: none;
+}
+/* the line leading into a done or current node is "traveled" → blue */
+.cbe-track-step.done::before,
+.cbe-track-step.current::before {
+  background: var(--cbe-blue);
+}
+.cbe-track-step .node {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: #fff;
+  border: 2px solid var(--cbe-border);
+  color: var(--cbe-muted);
+  z-index: 1;
+}
+.cbe-track-step.done .node {
+  background: var(--cbe-blue);
+  border-color: var(--cbe-blue);
+  color: #fff;
+}
+.cbe-track-step.current .node {
+  border: 3px solid var(--cbe-red);
+  color: var(--cbe-red);
+  box-shadow: 0 0 0 4px rgba(200, 16, 46, 0.14);
+}
+.cbe-track-step .meta {
+  display: block;
+  padding: 0 6px;
+}
+.cbe-track-step .lbl {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--cbe-text);
+  line-height: 1.2;
+}
+.cbe-track-step.todo .lbl {
+  color: var(--cbe-muted);
+  font-weight: 600;
+}
+.cbe-track-step .sub {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--cbe-muted);
+  margin-top: 2px;
+}
+.cbe-track-step.current .sub {
+  color: var(--cbe-red);
+  font-weight: 700;
+}
+
+/* --- Public landing --- */
+.cbe-hero {
+  text-align: center;
+  padding: 30px 16px 10px;
+}
+.cbe-hero img {
+  width: 68px;
+  height: 68px;
+  margin-bottom: 14px;
+}
+.cbe-hero h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+  color: var(--cbe-black);
+}
+.cbe-hero p {
+  margin: 0 auto;
+  max-width: 620px;
+  color: var(--cbe-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.cbe-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+  max-width: 860px;
+  margin: 34px auto 0;
+}
+.cbe-choice {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  align-items: center;
+  padding: 30px 22px;
+  border-radius: 14px;
+  border: 1px solid var(--cbe-border);
+  background: #fff;
+  box-shadow: var(--cbe-shadow);
+  text-decoration: none;
+  color: var(--cbe-text);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.cbe-choice:hover {
+  transform: translateY(-3px);
+  border-color: var(--cbe-blue);
+  box-shadow: 0 6px 18px rgba(20, 22, 28, 0.1);
+  text-decoration: none;
+}
+.cbe-choice .ico {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 14px;
+  background: #eaf1fb;
+  color: var(--cbe-blue);
+}
+.cbe-choice.student .ico {
+  background: #fbe9e7;
+  color: var(--cbe-red);
+}
+.cbe-choice.staff .ico {
+  background: #eceef2;
+  color: var(--cbe-black);
+}
+.cbe-choice h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+}
+.cbe-choice p {
+  margin: 0 0 16px;
+  color: var(--cbe-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.cbe-choice .go {
+  margin-top: auto;
+  font-weight: 700;
+  color: var(--cbe-blue);
+}
+
+/* Document chips */
+.cbe-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef2f9;
+  border: 1px solid var(--cbe-border);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  margin: 0 6px 6px 0;
+}

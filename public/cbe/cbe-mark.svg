@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 46" role="img" aria-label="CBE">
+  <rect x="1" y="1" width="44" height="44" rx="11" fill="#ffffff" stroke="#e3e7ef" stroke-width="1"/>
+  <text x="23" y="26" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="18" letter-spacing="-0.5">
+    <tspan fill="#004EBA">C</tspan><tspan fill="#14161c">B</tspan><tspan fill="#C8102E">E</tspan>
+  </text>
+  <rect x="12" y="32.5" width="12" height="3" rx="1.5" fill="#004EBA"/>
+  <rect x="25" y="32.5" width="9" height="3" rx="1.5" fill="#C8102E"/>
+</svg>

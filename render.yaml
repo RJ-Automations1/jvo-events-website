@@ -5,7 +5,13 @@ services:
   - type: web
     name: jvo-events
     runtime: node
-    plan: starter
+    # Free plan for now. NOTE: the free tier has an EPHEMERAL filesystem and no
+    # persistent disk, and the service sleeps after ~15 min idle. The CBE vendor
+    # data (server/cbe/data + uploads) therefore RESETS on every redeploy and
+    # on cold starts. Fine for a first-draft/demo; move to a paid plan with a
+    # mounted disk (and point CBE_DATA_FILE / CBE_UPLOAD_DIR at it) before this
+    # holds real vendor records.
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: node server.js
     envVars:
@@ -49,3 +55,14 @@ services:
       # logs what it would send. Flip to "true" when ready.
       - key: PAYMENT_REMINDERS_ENABLED
         value: "false"
+      # --- CBE Vendor Onboarding & Payment Tracking Platform ---
+      # Optional. With none set, a built-in leadership login is used
+      # (tieraholmes@spelman.edu / cbe2026). Set CBE_DEV_PASSWORD to change just
+      # the password, or CBE_USERS (JSON) to define the full staff roster.
+      # CBE_COGNITO_SECRET secures the Cognito webhook (unused for now).
+      - key: CBE_DEV_PASSWORD
+        sync: false
+      - key: CBE_USERS
+        sync: false
+      - key: CBE_COGNITO_SECRET
+        sync: false

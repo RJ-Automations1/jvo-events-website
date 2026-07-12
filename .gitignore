@@ -5,3 +5,7 @@ dist
 *.log
 .DS_Store
 .vite
+
+# CBE platform runtime data (JSON store + uploaded vendor documents)
+server/cbe/data
+server/cbe/uploads

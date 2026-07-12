@@ -65,6 +65,65 @@ Until set, every date shows available (the endpoint returns an empty booked
 list). Endpoints: `GET /api/availability` (booked dates) and `/api/book`
 rejects a date that's already taken.
 
+## CBE Vendor Onboarding & Payment Tracking Platform
+
+A self-contained internal platform for the **Center for Black Entrepreneurship**
+lives alongside the events site. It's a Phase I framework for tracking every
+vendor from onboarding through final payment.
+
+- **UI:** `/cbe` (login at `/cbe/login`) — a light admin theme, distinct from the
+  dark marketing site.
+- **API:** `/api/cbe/*` (Express router in `server/cbe/`).
+- **Storage:** a JSON file (`server/cbe/data/`) + uploaded documents
+  (`server/cbe/uploads/`), both gitignored. Persistence is isolated in
+  `server/cbe/store.js` so it can be swapped for a database later.
+
+### What it does (Phase I)
+
+- **Public self-service portal** (`/cbe`) — the front door. Vendors and students
+  apply themselves (no login) via their own forms; every submission flows to the
+  staff master dashboard. Toggle with `CBE_PUBLIC_INTAKE`.
+- **Master Dashboard** — vendor + student counts, dollars requested/paid/outstanding,
+  onboarding progress, and a searchable/filterable table (filter by program or by
+  applicant type).
+- **FedEx-style progress tracker** — a per-applicant stepper showing what's done
+  (with dates), the current stage, and what's left, on the detail page.
+- **Program-specific views** — filter the dashboard by program; a per-program
+  roll-up table. Programs: LIFT ATL, LIFT National, Scholars, Research Fellows,
+  Sparkhouse, Spelpreneur, I-Corps, General CBE.
+- **Role-based access** — `leadership` sees all programs; `pm` sees only assigned
+  programs. Enforced server-side on every read and write.
+- **New-vendor onboarding** — permanent profile + demographics + document uploads
+  (W-9, ACH, application…) with an 8-step onboarding checklist.
+- **Returning-vendor payment requests** — search an existing vendor and log a new
+  engagement without re-onboarding; the profile is preserved.
+- **Engagement / payment tracking** — an 18-step workflow checklist per
+  engagement (invitation letter → ICA → SSJD → invoice → requisition → payment
+  complete), finance reference numbers (Req/PO/SQ/BO), and amounts.
+- **Cognito Forms webhook** — `POST /api/cbe/cognito-hook` auto-creates a vendor
+  or a returning-vendor payment request from a form submission.
+
+### Setup
+
+Configure staff logins and (optionally) the webhook secret in the environment —
+see the **CBE** block in `.env.example`. Minimum to go live:
+
+```bash
+CBE_USERS=[{"email":"tiera@cbecenter.org","name":"Tiera Holmes","role":"leadership","password":"a-strong-password"}]
+CBE_COGNITO_SECRET=some-long-random-string   # if using the Cognito webhook
+```
+
+With nothing set, a built-in leadership login is used
+(`tieraholmes@spelman.edu` / `cbe2026`) so the platform is usable immediately.
+Change the password with `CBE_DEV_PASSWORD`, or define the full staff roster with
+`CBE_USERS`, before this holds real data.
+
+**Render free plan caveat:** the free tier has an *ephemeral* filesystem (no
+persistent disk) and sleeps after ~15 min idle, so the CBE data store + uploads
+**reset on every redeploy and cold start**. That's fine for a first-draft/demo.
+Before it holds real vendor records, move to a paid plan with a mounted disk and
+point `CBE_DATA_FILE` / `CBE_UPLOAD_DIR` at it.
+
 ## Adding your images
 
 Drop photos into `public/manus-storage/` (see the README there). The hero uses

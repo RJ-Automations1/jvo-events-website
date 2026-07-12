@@ -9,6 +9,7 @@ import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/g
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
 import { sendBookingConfirmation, sendTourConfirmation, sendTourNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
+import cbeRouter from "./server/cbe/routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -38,6 +39,11 @@ app.use((req, res, next) => {
 
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// --- CBE Vendor Onboarding & Payment Tracking Platform ---
+// Self-contained module: auth, vendors, engagements, metrics, uploads, and the
+// Cognito Forms webhook all live under /api/cbe (see server/cbe/*).
+app.use("/api/cbe", cbeRouter);
 
 // Small in-memory cache so repeated page loads are instant and we don't hit the
 // calendar/Deskworks APIs on every request. Keyed by from|to, 5-minute TTL.
