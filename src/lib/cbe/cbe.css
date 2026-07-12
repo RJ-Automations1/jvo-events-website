@@ -15,9 +15,10 @@
   --cbe-red-dark: #9e0c24;
   --cbe-black: #14161c;
   --cbe-sky: #a5c9eb;
-  --cbe-bg: #f5f6f9;
+  --cbe-bg: #ffffff;
   --cbe-surface: #ffffff;
   --cbe-border: #e3e7ef;
+  --cbe-shadow: 0 1px 2px rgba(20, 22, 28, 0.04), 0 1px 3px rgba(20, 22, 28, 0.07);
   --cbe-text: #14161c;
   --cbe-muted: #5f6b7e;
   --cbe-green: #1a7f4b;
@@ -190,6 +191,7 @@
   border: 1px solid var(--cbe-border);
   border-radius: 12px;
   padding: 20px;
+  box-shadow: var(--cbe-shadow);
 }
 .cbe-grid {
   display: grid;
@@ -226,6 +228,7 @@
   border: 1px solid var(--cbe-border);
   border-radius: 12px;
   padding: 16px 18px;
+  box-shadow: var(--cbe-shadow);
 }
 .cbe-stat .label {
   font-size: 0.72rem;
@@ -247,6 +250,7 @@
   border: 1px solid var(--cbe-border);
   border-radius: 12px;
   background: var(--cbe-surface);
+  box-shadow: var(--cbe-shadow);
 }
 .cbe-table {
   width: 100%;
