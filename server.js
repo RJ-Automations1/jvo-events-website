@@ -9,6 +9,7 @@ import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/g
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
 import { sendBookingConfirmation, sendTourConfirmation, sendTourNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
+import { refreshNewsDigest, getNewsDigest } from "./server/news.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -38,6 +39,19 @@ app.use((req, res, next) => {
 
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+/**
+ * Daily news briefing — the /news dashboard reads this. Returns the most recent
+ * digest built by the daily agent (politics/presidency, world & war, AI/tech).
+ * Never blocks: if nothing has been built yet, returns an empty-but-valid shape.
+ */
+app.get("/api/news", (_req, res) => {
+  const digest = getNewsDigest();
+  if (!digest) {
+    return res.json({ ok: true, ready: false, generatedAt: null, sections: [] });
+  }
+  return res.json({ ok: true, ready: true, ...digest });
+});
 
 // Small in-memory cache so repeated page loads are instant and we don't hit the
 // calendar/Deskworks APIs on every request. Keyed by from|to, 5-minute TTL.
@@ -482,6 +496,56 @@ if (cron.validate(REMINDER_CRON)) {
 } else {
   console.warn(`[cron] invalid PAYMENT_REMINDER_CRON "${REMINDER_CRON}" — daily sweep disabled`);
 }
+
+// --- Daily news agent (manual trigger + daily schedule) ---
+// Gathers the morning briefing (politics/presidency, world & war, AI/tech) and,
+// if ANTHROPIC_API_KEY is set, has Claude curate it. Protected by the same
+// CRON_SECRET as the reminder sweep: POST /api/cron/news-refresh?token=...
+app.post("/api/cron/news-refresh", async (req, res) => {
+  if (CRON_SECRET) {
+    const token = req.query.token || req.headers["x-cron-token"];
+    if (token !== CRON_SECRET) {
+      console.warn("[cron] news-refresh rejected: bad/missing token");
+      return res.status(401).json({ ok: false });
+    }
+  }
+  try {
+    const digest = await refreshNewsDigest();
+    return res.status(200).json({
+      ok: true,
+      generatedAt: digest.generatedAt,
+      totalItems: digest.totalItems,
+      ai: digest.ai,
+    });
+  } catch (err) {
+    console.error("[cron] news-refresh failed:", err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Daily schedule. Default 6:00am Eastern so the briefing is ready first thing;
+// override with NEWS_CRON (5-field cron) / EVENT_TIMEZONE.
+const NEWS_CRON = process.env.NEWS_CRON || "0 6 * * *";
+if (cron.validate(NEWS_CRON)) {
+  cron.schedule(
+    NEWS_CRON,
+    () => {
+      refreshNewsDigest().catch((err) =>
+        console.error("[cron] scheduled news-refresh failed:", err.message)
+      );
+    },
+    { timezone: REMINDER_TZ }
+  );
+  console.log(`[cron] news briefing scheduled "${NEWS_CRON}" (${REMINDER_TZ})`);
+} else {
+  console.warn(`[cron] invalid NEWS_CRON "${NEWS_CRON}" — daily briefing disabled`);
+}
+
+// Build an initial briefing shortly after boot so /news has content immediately
+// (and after every redeploy), without delaying server startup.
+setTimeout(() => {
+  refreshNewsDigest().catch((err) => console.error("[news] initial refresh failed:", err.message));
+}, 4000);
 
 // --- Serve the built front-end (production) ---
 const distDir = path.join(__dirname, "dist");

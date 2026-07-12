@@ -135,6 +135,12 @@ body {
   text-decoration: line-through;
 }
 
+/* News dashboard headline cards — subtle lift on hover */
+.news-card:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(201, 169, 106, 0.45) !important;
+}
+
 /* Respect reduced-motion preferences */
 @media (prefers-reduced-motion: reduce) {
   .reveal {

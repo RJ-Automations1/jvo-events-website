@@ -5,3 +5,6 @@ dist
 *.log
 .DS_Store
 .vite
+
+# Generated daily news digest cache (rebuilt on boot + daily cron)
+data/news-digest.json
