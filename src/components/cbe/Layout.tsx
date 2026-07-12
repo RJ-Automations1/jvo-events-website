@@ -21,7 +21,7 @@ function TopNav() {
           </div>
         </div>
         <nav className="cbe-nav-links">
-          <NavLink to="/cbe" end className={({ isActive }) => (isActive ? "active" : "")}>
+          <NavLink to="/cbe/dashboard" end className={({ isActive }) => (isActive ? "active" : "")}>
             Dashboard
           </NavLink>
           <NavLink to="/cbe/vendors/new" className={({ isActive }) => (isActive ? "active" : "")}>

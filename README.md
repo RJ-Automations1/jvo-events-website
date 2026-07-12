@@ -80,8 +80,14 @@ vendor from onboarding through final payment.
 
 ### What it does (Phase I)
 
-- **Master Dashboard** — vendor counts, dollars requested/paid/outstanding,
-  onboarding progress, and a searchable/filterable vendor table.
+- **Public self-service portal** (`/cbe`) — the front door. Vendors and students
+  apply themselves (no login) via their own forms; every submission flows to the
+  staff master dashboard. Toggle with `CBE_PUBLIC_INTAKE`.
+- **Master Dashboard** — vendor + student counts, dollars requested/paid/outstanding,
+  onboarding progress, and a searchable/filterable table (filter by program or by
+  applicant type).
+- **FedEx-style progress tracker** — a per-applicant stepper showing what's done
+  (with dates), the current stage, and what's left, on the detail page.
 - **Program-specific views** — filter the dashboard by program; a per-program
   roll-up table. Programs: LIFT ATL, LIFT National, Scholars, Research Fellows,
   Sparkhouse, Spelpreneur, I-Corps, General CBE.

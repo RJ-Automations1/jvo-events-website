@@ -11,6 +11,7 @@ export default function CbeDashboard() {
   const [params, setParams] = useSearchParams();
   const program = params.get("program") || "";
   const q = params.get("q") || "";
+  const type = params.get("type") || "";
 
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -30,6 +31,7 @@ export default function CbeDashboard() {
     const qs = new URLSearchParams();
     if (program) qs.set("program", program);
     if (q) qs.set("q", q);
+    if (type) qs.set("type", type);
     Promise.all([
       api<Metrics>("/metrics"),
       api<{ vendors: Vendor[] }>(`/vendors?${qs.toString()}`),
@@ -45,7 +47,7 @@ export default function CbeDashboard() {
     return () => {
       alive = false;
     };
-  }, [program, q]);
+  }, [program, q, type]);
 
   function updateParam(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -89,7 +91,7 @@ export default function CbeDashboard() {
         style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 20 }}
       >
         <div className="cbe-field" style={{ margin: 0, minWidth: 220, flex: 1 }}>
-          <label>Search vendors</label>
+          <label htmlFor="cbe-f-search">Search applicants</label>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -97,6 +99,7 @@ export default function CbeDashboard() {
             }}
           >
             <input
+              id="cbe-f-search"
               className="cbe-input"
               placeholder="Name, contact, email, role…"
               value={search}
@@ -105,8 +108,9 @@ export default function CbeDashboard() {
           </form>
         </div>
         <div className="cbe-field" style={{ margin: 0, minWidth: 200 }}>
-          <label>Program</label>
+          <label htmlFor="cbe-f-program">Program</label>
           <select
+            id="cbe-f-program"
             className="cbe-select"
             value={program}
             onChange={(e) => updateParam("program", e.target.value)}
@@ -119,7 +123,20 @@ export default function CbeDashboard() {
             ))}
           </select>
         </div>
-        {(program || q) && (
+        <div className="cbe-field" style={{ margin: 0, minWidth: 150 }}>
+          <label htmlFor="cbe-f-type">Type</label>
+          <select
+            id="cbe-f-type"
+            className="cbe-select"
+            value={type}
+            onChange={(e) => updateParam("type", e.target.value)}
+          >
+            <option value="">Vendors &amp; Students</option>
+            <option value="Vendor">Vendors only</option>
+            <option value="Student">Students only</option>
+          </select>
+        </div>
+        {(program || q || type) && (
           <button
             className="cbe-btn ghost"
             onClick={() => setParams(new URLSearchParams(), { replace: true })}
@@ -134,8 +151,8 @@ export default function CbeDashboard() {
         <div className="cbe-spinner">Loading vendors…</div>
       ) : vendors.length === 0 ? (
         <div className="cbe-card cbe-muted" style={{ textAlign: "center", padding: 40 }}>
-          No vendors yet. <Link to="/cbe/vendors/new">Add your first vendor</Link> or wire up the
-          Cognito Forms webhook.
+          No applicants yet. <Link to="/cbe/vendors/new">Add one manually</Link>, or share the
+          public portal at <strong>/cbe</strong> so vendors and students can apply themselves.
         </div>
       ) : (
         <div className="cbe-table-wrap">
@@ -156,7 +173,12 @@ export default function CbeDashboard() {
               {vendors.map((v) => (
                 <tr key={v.id} onClick={() => navigate(`/cbe/vendors/${v.id}`)}>
                   <td>
-                    <strong>{v.vendorName || "(unnamed)"}</strong>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <strong>{v.vendorName || "(unnamed)"}</strong>
+                      <span className={`cbe-badge ${v.applicantType === "Student" ? "red" : "gray"}`}>
+                        {v.applicantType || "Vendor"}
+                      </span>
+                    </div>
                     {v.contactName && v.contactName !== v.vendorName && (
                       <div className="cbe-muted" style={{ fontSize: "0.8rem" }}>{v.contactName}</div>
                     )}

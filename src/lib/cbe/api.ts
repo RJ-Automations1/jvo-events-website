@@ -92,6 +92,9 @@ export interface Meta {
   onboardingSteps: StepDef[];
   engagementSteps: StepDef[];
   engagementRefFields: StepDef[];
+  applicantTypes: string[];
+  studentSchools: string[];
+  studentClassifications: string[];
 }
 
 export interface StepState {
@@ -111,6 +114,7 @@ export interface Vendor {
   id: string;
   createdAt: string;
   updatedAt: string;
+  applicantType: string;
   vendorName: string;
   contactName: string;
   email: string;
@@ -120,6 +124,9 @@ export interface Vendor {
   vendorType: string;
   vendorRole: string;
   status: string;
+  school: string;
+  classification: string;
+  major: string;
   demographics: string;
   address: string;
   notes: string;

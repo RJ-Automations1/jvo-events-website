@@ -12,7 +12,7 @@ export default function CbeLogin() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const from = (location.state as { from?: string })?.from || "/cbe";
+  const from = (location.state as { from?: string })?.from || "/cbe/dashboard";
 
   if (!loading && user) return <Navigate to={from} replace />;
 

@@ -115,6 +115,27 @@ export const ENGAGEMENT_REF_FIELDS = [
   { key: "bo_number", label: "BO Number" },
 ];
 
+// Who is filling out the intake — a Vendor (paid provider) or a Student
+// (program participant). Both feed the same master dashboard.
+export const APPLICANT_TYPES = ["Vendor", "Student"];
+
+// Options for the student self-service application.
+export const STUDENT_SCHOOLS = [
+  "Spelman College",
+  "Morehouse College",
+  "Clark Atlanta University",
+  "Morehouse School of Medicine",
+  "Other",
+];
+export const STUDENT_CLASSIFICATIONS = [
+  "Freshman",
+  "Sophomore",
+  "Junior",
+  "Senior",
+  "Graduate Student",
+  "Alumni",
+];
+
 export const USER_ROLES = { LEADERSHIP: "leadership", PM: "pm" };
 
 export function programName(id) {

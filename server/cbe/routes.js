@@ -22,6 +22,9 @@ import {
   ONBOARDING_STEPS,
   ENGAGEMENT_STEPS,
   ENGAGEMENT_REF_FIELDS,
+  APPLICANT_TYPES,
+  STUDENT_SCHOOLS,
+  STUDENT_CLASSIFICATIONS,
 } from "./constants.js";
 import * as store from "./store.js";
 import {
@@ -92,8 +95,51 @@ router.get("/meta", (_req, res) => {
     onboardingSteps: ONBOARDING_STEPS,
     engagementSteps: ENGAGEMENT_STEPS,
     engagementRefFields: ENGAGEMENT_REF_FIELDS,
+    applicantTypes: APPLICANT_TYPES,
+    studentSchools: STUDENT_SCHOOLS,
+    studentClassifications: STUDENT_CLASSIFICATIONS,
   });
 });
+
+// --- Public self-service intake (no login) ------------------------------
+// Vendors and students apply themselves from the CBE landing page; each
+// submission creates a record that shows up on the staff dashboard. Kept
+// deliberately simple (like the site's public booking form). Toggle off with
+// CBE_PUBLIC_INTAKE=false. Uploads honor the same size limit as staff uploads.
+const PUBLIC_INTAKE_ENABLED = process.env.CBE_PUBLIC_INTAKE !== "false";
+
+function publicApply(applicantType) {
+  return (req, res) => {
+    if (!PUBLIC_INTAKE_ENABLED) {
+      return res.status(403).json({ error: "Applications are not open right now." });
+    }
+    const body = parseBody(req);
+    const name = String(body.vendorName || body.name || body.contactName || "").trim();
+    if (!name) return res.status(400).json({ error: "Please enter your name." });
+    if (!String(body.program || "").trim()) {
+      return res.status(400).json({ error: "Please choose a program." });
+    }
+    const vendor = store.createVendor(
+      buildVendorFromInput({
+        ...body,
+        applicantType,
+        status: "New",
+        documents: (req.files || []).map(docMeta),
+        source: applicantType === "Student" ? "student-portal" : "vendor-portal",
+      })
+    );
+    // A vendor application that includes payment details opens its first
+    // engagement so it flows straight into payment tracking.
+    if (applicantType === "Vendor" && (body.paymentReason || body.paymentAmount)) {
+      store.createEngagement(buildEngagementFromInput(vendor.id, { ...body, source: "vendor-portal" }));
+    }
+    // Don't leak internal data back to an anonymous submitter.
+    return res.status(201).json({ ok: true, reference: vendor.id.slice(-6).toUpperCase() });
+  };
+}
+
+router.post("/public/vendor-application", upload.array("documents", 12), publicApply("Vendor"));
+router.post("/public/student-application", upload.array("documents", 12), publicApply("Student"));
 
 router.post("/login", (req, res) => {
   const { email, password } = req.body || {};
@@ -175,6 +221,9 @@ router.get("/vendors", requireAuth, (req, res) => {
 
   const program = req.query.program;
   if (program) vendors = vendors.filter((v) => v.program === program);
+
+  const type = req.query.type;
+  if (type) vendors = vendors.filter((v) => (v.applicantType || "Vendor") === type);
 
   const q = String(req.query.q || "").toLowerCase().trim();
   if (q) {
@@ -272,6 +321,10 @@ router.patch("/vendors/:id", requireAuth, (req, res) => {
     "vendorType",
     "vendorRole",
     "status",
+    "applicantType",
+    "school",
+    "classification",
+    "major",
     "demographics",
     "address",
     "notes",

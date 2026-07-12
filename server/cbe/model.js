@@ -25,7 +25,10 @@ function initSteps(steps, presetDoneKeys = []) {
 
 /** A vendor's permanent profile — the parts that don't change per engagement. */
 export function buildVendorFromInput(input = {}) {
+  const applicantType = /student/i.test(str(input.applicantType)) ? "Student" : "Vendor";
   return {
+    // Vendor or Student — both live on the same dashboard.
+    applicantType,
     // Identity / contact
     vendorName: str(input.vendorName) || str(input.name),
     contactName: str(input.contactName) || str(input.name),
@@ -37,6 +40,10 @@ export function buildVendorFromInput(input = {}) {
     vendorType: str(input.vendorType),
     vendorRole: str(input.vendorRole),
     status: str(input.status) || "New",
+    // Student-only fields (empty for vendors)
+    school: str(input.school),
+    classification: str(input.classification),
+    major: str(input.major),
     // Demographics (permanent profile) + free text
     demographics: str(input.demographics),
     address: str(input.address),
