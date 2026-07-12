@@ -49,3 +49,11 @@ services:
       # logs what it would send. Flip to "true" when ready.
       - key: PAYMENT_REMINDERS_ENABLED
         value: "false"
+      # Daily news agent → private /news briefing. Runs with no config (raw
+      # headlines). Set ANTHROPIC_API_KEY to have Claude curate the top stories
+      # with a "why it matters" note (great for the AI-consulting track).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # (optional) Daily build time; default 6am in EVENT_TIMEZONE.
+      - key: NEWS_CRON
+        value: "0 6 * * *"
