@@ -470,6 +470,96 @@
   color: var(--cbe-muted);
 }
 
+/* --- FedEx-style progress tracker --- */
+.cbe-tracker {
+  overflow-x: auto;
+  padding: 6px 2px 2px;
+}
+.cbe-track {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 520px;
+}
+.cbe-track-step {
+  flex: 1;
+  position: relative;
+  padding-top: 40px;
+  text-align: center;
+}
+/* connector line entering each step from the previous node */
+.cbe-track-step::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: 50%;
+  width: 100%;
+  height: 3px;
+  background: var(--cbe-border);
+}
+.cbe-track-step:first-child::before {
+  display: none;
+}
+/* the line leading into a done or current node is "traveled" → blue */
+.cbe-track-step.done::before,
+.cbe-track-step.current::before {
+  background: var(--cbe-blue);
+}
+.cbe-track-step .node {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: #fff;
+  border: 2px solid var(--cbe-border);
+  color: var(--cbe-muted);
+  z-index: 1;
+}
+.cbe-track-step.done .node {
+  background: var(--cbe-blue);
+  border-color: var(--cbe-blue);
+  color: #fff;
+}
+.cbe-track-step.current .node {
+  border: 3px solid var(--cbe-red);
+  color: var(--cbe-red);
+  box-shadow: 0 0 0 4px rgba(200, 16, 46, 0.14);
+}
+.cbe-track-step .meta {
+  display: block;
+  padding: 0 6px;
+}
+.cbe-track-step .lbl {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--cbe-text);
+  line-height: 1.2;
+}
+.cbe-track-step.todo .lbl {
+  color: var(--cbe-muted);
+  font-weight: 600;
+}
+.cbe-track-step .sub {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--cbe-muted);
+  margin-top: 2px;
+}
+.cbe-track-step.current .sub {
+  color: var(--cbe-red);
+  font-weight: 700;
+}
+
 /* Document chips */
 .cbe-doc {
   display: inline-flex;

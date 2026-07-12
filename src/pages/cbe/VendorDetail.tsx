@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState, cloneElement, isValidElement, 
 import { Link, useParams } from "react-router-dom";
 import CbeLayout from "@/components/cbe/Layout";
 import { StatusBadge, Progress, DocLink, programName } from "@/components/cbe/ui";
+import Tracker, { ONBOARDING_PHASES, ENGAGEMENT_PHASES } from "@/components/cbe/Tracker";
 import { useCbeAuth } from "@/lib/cbe/auth";
 import {
   api,
@@ -89,6 +90,18 @@ export default function VendorDetail() {
         <Tile label="Dollars Requested" value={money(vendor.dollarsRequested)} />
         <Tile label="Dollars Paid" value={money(vendor.dollarsPaid)} />
         <Tile label="Outstanding" value={money(vendor.outstanding)} />
+      </div>
+
+      {/* FedEx-style onboarding tracker — where this vendor is in the process */}
+      <div className="cbe-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
+          <h2 className="cbe-section-title" style={{ margin: 0 }}>Onboarding Tracker</h2>
+          <span className="cbe-muted" style={{ fontSize: "0.82rem" }}>
+            Started {new Date(vendor.createdAt).toLocaleDateString()}
+            {vendor.onboardingNextAction ? ` · Next: ${vendor.onboardingNextAction}` : " · Onboarding complete"}
+          </span>
+        </div>
+        <Tracker phases={ONBOARDING_PHASES} state={vendor.onboarding} />
       </div>
 
       <div className="cbe-grid" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -426,8 +439,13 @@ function EngagementCard({
         </div>
       </div>
 
+      {/* Payment tracker — always visible so progress reads at a glance */}
+      <div style={{ marginTop: 14 }}>
+        <Tracker phases={ENGAGEMENT_PHASES} state={e.workflow} />
+      </div>
+
       {!open && e.nextAction && (
-        <div className="cbe-muted" style={{ fontSize: "0.82rem", marginTop: 8 }}>
+        <div className="cbe-muted" style={{ fontSize: "0.82rem", marginTop: 6 }}>
           Next: {e.nextAction}
         </div>
       )}

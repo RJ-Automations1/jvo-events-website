@@ -160,6 +160,9 @@ export default function CbeDashboard() {
                     {v.contactName && v.contactName !== v.vendorName && (
                       <div className="cbe-muted" style={{ fontSize: "0.8rem" }}>{v.contactName}</div>
                     )}
+                    <div className="cbe-muted" style={{ fontSize: "0.72rem" }}>
+                      Started {new Date(v.createdAt).toLocaleDateString()}
+                    </div>
                   </td>
                   <td>{programName(programs, v.program)}</td>
                   <td>{v.programManager || "—"}</td>
