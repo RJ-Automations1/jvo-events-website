@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -45,15 +45,20 @@ const included: { title: string; items: string[] }[] = [
   },
 ];
 
-/** Enhancements with a fixed price. */
-const pricedEnhancements: { label: string; value: string }[] = [
-  { label: "20×40 Premium Event Tent Package", value: "$1,500" },
-  { label: "Luxury Flower Wall & Pergola Décor", value: "$850" },
-  { label: "Wedding Rehearsal Coordination (5 hrs)", value: "$800" },
-  { label: "Licensed Wedding Officiant", value: "$450" },
-  { label: "Additional 100 Chairs with Chair Covers", value: "$250" },
-  { label: "Additional 50 Chairs with Chair Covers", value: "$150" },
+/** The all-inclusive Signature Wedding Package base price. */
+const BASE_PACKAGE = 4000;
+
+/** Enhancements with a fixed price — drive the live estimate calculator. */
+const pricedEnhancements: { label: string; price: number }[] = [
+  { label: "20×40 Premium Event Tent Package", price: 1500 },
+  { label: "Luxury Flower Wall & Pergola Décor", price: 850 },
+  { label: "Wedding Rehearsal Coordination (5 hrs)", price: 800 },
+  { label: "Licensed Wedding Officiant", price: 450 },
+  { label: "Additional 100 Chairs with Chair Covers", price: 250 },
+  { label: "Additional 50 Chairs with Chair Covers", price: 150 },
 ];
+
+const fmtUSD = (n: number) => "$" + n.toLocaleString("en-US");
 
 /** Enhancements quoted per event. */
 const customQuoteEnhancements: string[] = [
@@ -89,6 +94,146 @@ const reasons: string[] = [
   "Access to trusted preferred vendors",
   "Stress-free setup and breakdown",
 ];
+
+/**
+ * Live estimate builder — starts at the $4,000 Signature Package and adds the
+ * tapped enhancements, updating the running total instantly.
+ */
+function EstimateCalculator() {
+  const [selected, setSelected] = useState<Record<number, boolean>>({});
+  const toggle = (i: number) => setSelected((s) => ({ ...s, [i]: !s[i] }));
+  const chosen = pricedEnhancements.filter((_, i) => selected[i]);
+  const total = BASE_PACKAGE + chosen.reduce((sum, e) => sum + e.price, 0);
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-5">
+      {/* Add-on toggles */}
+      <div className="lg:col-span-3">
+        <p
+          className="text-white/45 text-xs tracking-[0.2em] uppercase mb-4"
+          style={{ fontFamily: "'Lato', sans-serif" }}
+        >
+          Tap an enhancement to add it
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {pricedEnhancements.map((e, i) => {
+            const on = !!selected[i];
+            return (
+              <button
+                key={e.label}
+                type="button"
+                onClick={() => toggle(i)}
+                aria-pressed={on}
+                className="flex items-center justify-between gap-3 p-5 text-left transition-colors"
+                style={{
+                  border: on ? "1px solid #c9a96a" : "1px solid rgba(255,255,255,0.12)",
+                  background: on ? "rgba(201,169,106,0.10)" : "rgba(255,255,255,0.03)",
+                }}
+              >
+                <span className="flex items-center gap-3">
+                  <span
+                    className="grid place-items-center shrink-0"
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 3,
+                      border: on ? "1px solid #c9a96a" : "1px solid rgba(255,255,255,0.3)",
+                      background: on ? "#c9a96a" : "transparent",
+                      color: "#0b0b0b",
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {on ? "✓" : ""}
+                  </span>
+                  <span className="text-white/85 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
+                    {e.label}
+                  </span>
+                </span>
+                <span className="text-white font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>
+                  {fmtUSD(e.price)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Live summary */}
+      <div className="lg:col-span-2">
+        <div
+          className="lg:sticky lg:top-24 p-7"
+          style={{ border: "1px solid rgba(201,169,106,0.35)", background: "rgba(201,169,106,0.06)" }}
+        >
+          <span
+            className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase block mb-4"
+            style={{ fontFamily: "'Lato', sans-serif" }}
+          >
+            Your Estimate
+          </span>
+
+          <div className="flex items-baseline justify-between gap-3">
+            <div>
+              <div className="text-white font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Signature Wedding Package
+              </div>
+              <div className="text-white/45 text-xs mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Venue · furniture · full staffing
+              </div>
+            </div>
+            <div className="text-white font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>
+              {fmtUSD(BASE_PACKAGE)}
+            </div>
+          </div>
+
+          <div className="accent-divider my-5" />
+
+          {chosen.length === 0 ? (
+            <p className="text-white/40 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
+              No enhancements added yet.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {chosen.map((e) => (
+                <li
+                  key={e.label}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                  style={{ fontFamily: "'Lato', sans-serif" }}
+                >
+                  <span className="text-white/70">{e.label}</span>
+                  <span className="text-white/70 shrink-0">{fmtUSD(e.price)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="accent-divider my-5" />
+
+          <div className="flex items-baseline justify-between gap-3">
+            <span
+              className="text-white text-sm tracking-wide uppercase"
+              style={{ fontFamily: "'Lato', sans-serif" }}
+            >
+              Estimated Total
+            </span>
+            <span className="text-white text-3xl font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>
+              {fmtUSD(total)}
+            </span>
+          </div>
+
+          <p className="text-white/40 text-xs leading-relaxed mt-4" style={{ fontFamily: "'Lato', sans-serif" }}>
+            Estimate only. Custom-quote enhancements and preferred-vendor services are priced
+            separately.
+          </p>
+
+          <Link to="/book" className="btn-white w-full text-center mt-6 inline-block">
+            Book Your Wedding
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Weddings() {
   useReveal();
@@ -169,12 +314,17 @@ export default function Weddings() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Included in Every Package
+              The Signature Wedding Package
             </p>
             <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-              What's included
+              Everything included for <span style={{ color: "#c9a96a" }}>$4,000</span>
             </h2>
             <div className="reveal accent-divider mx-auto mt-5" />
+            <p className="reveal text-white/55 text-base sm:text-lg leading-relaxed mt-6 max-w-2xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
+              One all-inclusive price covers the venue, furniture, and full professional
+              staffing below — then build your total with optional enhancements in the estimate
+              builder underneath.
+            </p>
           </div>
 
           <div className="reveal grid gap-px md:grid-cols-3" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -198,30 +348,25 @@ export default function Weddings() {
         </div>
       </section>
 
-      {/* Optional enhancements */}
-      <section style={{ background: "#080808", padding: "90px 0" }}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Build your estimate — interactive calculator */}
+      <section id="estimate" style={{ background: "#080808", padding: "90px 0" }}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
               Make It Yours
             </p>
             <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Optional wedding enhancements
+              Build your wedding estimate
             </h2>
             <div className="reveal accent-divider mx-auto mt-5" />
+            <p className="reveal text-white/55 text-base sm:text-lg leading-relaxed mt-6 max-w-2xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
+              Start with the $4,000 Signature Package, then tap any enhancement to add it — your
+              estimated total updates as you go.
+            </p>
           </div>
 
-          <div className="reveal grid gap-4 sm:grid-cols-2">
-            {pricedEnhancements.map((e) => (
-              <div
-                key={e.label}
-                className="flex items-baseline justify-between gap-4 p-6"
-                style={{ border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.03)" }}
-              >
-                <span className="text-white/80 text-sm sm:text-base" style={{ fontFamily: "'Lato', sans-serif" }}>{e.label}</span>
-                <span className="text-white text-xl font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>{e.value}</span>
-              </div>
-            ))}
+          <div className="reveal">
+            <EstimateCalculator />
           </div>
 
           {/* Custom-quote enhancements */}
