@@ -1,8 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import multer from "multer";
+import Anthropic from "@anthropic-ai/sdk";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { JVO_SYSTEM_PROMPT } from "./server/jvoKnowledge.js";
 import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
 import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
@@ -38,6 +40,63 @@ app.use((req, res, next) => {
 
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// --- Customer chatbot: answers questions from the JVO capability overview ---
+const CHAT_MODEL = process.env.CHAT_MODEL || "claude-opus-4-8";
+const CHAT_FALLBACK =
+  "Sorry — I'm having trouble right now. Please email eventsjvo@gmail.com or call 678-519-4723 and the JVO team will help you directly.";
+let anthropicClient = null;
+function getAnthropic() {
+  if (!anthropicClient) anthropicClient = new Anthropic(); // reads ANTHROPIC_API_KEY
+  return anthropicClient;
+}
+
+app.post("/api/chat", async (req, res) => {
+  // Sanitize the transcript: keep only well-formed user/assistant turns, cap
+  // per-message length and the number of turns we forward to the model.
+  const raw = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const messages = raw
+    .filter(
+      (m) =>
+        m &&
+        (m.role === "user" || m.role === "assistant") &&
+        typeof m.content === "string" &&
+        m.content.trim() !== ""
+    )
+    .slice(-12)
+    .map((m) => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
+
+  if (!messages.length || messages[messages.length - 1].role !== "user") {
+    return res.status(400).json({ error: "A user message is required." });
+  }
+
+  // Graceful degrade when the API key isn't configured yet.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.json({
+      reply:
+        "Our live assistant isn't set up just yet. Email eventsjvo@gmail.com or call 678-519-4723 and the JVO team will be happy to help!",
+    });
+  }
+
+  try {
+    const client = getAnthropic();
+    const msg = await client.messages.create({
+      model: CHAT_MODEL,
+      max_tokens: 1024,
+      system: JVO_SYSTEM_PROMPT,
+      messages,
+    });
+    const reply = (msg.content || [])
+      .filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    return res.json({ reply: reply || "Sorry, I didn't catch that — could you rephrase?" });
+  } catch (err) {
+    console.error("[/api/chat] failed:", err?.message || err);
+    return res.status(502).json({ error: "chat_unavailable", reply: CHAT_FALLBACK });
+  }
+});
 
 // Small in-memory cache so repeated page loads are instant and we don't hit the
 // calendar/Deskworks APIs on every request. Keyed by from|to, 5-minute TTL.

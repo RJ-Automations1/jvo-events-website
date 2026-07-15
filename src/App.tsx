@@ -9,6 +9,7 @@ import Testimonials from "@/pages/Testimonials";
 import Book from "@/pages/Book";
 import Tour from "@/pages/Tour";
 import NotFound from "@/pages/NotFound";
+import ChatWidget from "@/components/ChatWidget";
 
 /** Scroll to top on every route change. */
 function ScrollToTop() {
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/tour" element={<Tour />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <ChatWidget />
     </>
   );
 }
