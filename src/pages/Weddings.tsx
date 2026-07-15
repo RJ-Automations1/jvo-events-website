@@ -527,7 +527,7 @@ export default function Weddings() {
       {/* Intro */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="reveal text-[#c9a96a] text-sm sm:text-base tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+          <p className="reveal text-[#c9a96a] text-base sm:text-lg tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
             One Venue · Ceremony &amp; Reception
           </p>
           <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -587,7 +587,7 @@ export default function Weddings() {
       <section id="estimate" style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+            <p className="reveal text-[#c9a96a] text-base sm:text-lg tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
               Make It Yours
             </p>
             <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -656,7 +656,7 @@ export default function Weddings() {
       <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+            <p className="reveal text-[#c9a96a] text-base sm:text-lg tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
               Trusted Partners
             </p>
             <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -701,7 +701,7 @@ export default function Weddings() {
             />
             {/* Reasons */}
             <div className="reveal">
-              <p className="text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+              <p className="text-[#c9a96a] text-base sm:text-lg tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
                 Why Couples Choose JVO
               </p>
               <h2 className="text-white text-3xl sm:text-4xl font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
