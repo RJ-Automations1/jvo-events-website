@@ -79,11 +79,11 @@ export default function Contact() {
                     Email
                   </div>
                   <a
-                    href="mailto:jonesborovirtualoffice@gmail.com"
+                    href="mailto:eventsjvo@gmail.com"
                     className="text-white/70 text-lg hover:text-white transition-colors"
                     style={{ fontFamily: "'Lato', sans-serif" }}
                   >
-                    jonesborovirtualoffice@gmail.com
+                    eventsjvo@gmail.com
                   </a>
                 </div>
 

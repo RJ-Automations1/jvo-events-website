@@ -89,10 +89,10 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="mailto:jonesborovirtualoffice@gmail.com"
+                  href="mailto:eventsjvo@gmail.com"
                   className="text-white/50 text-sm hover:text-white/85 transition-colors"
                 >
-                  jonesborovirtualoffice@gmail.com
+                  eventsjvo@gmail.com
                 </a>
               </li>
               <li className="text-white/50 text-sm">Jonesboro, Georgia</li>

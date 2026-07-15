@@ -7,7 +7,7 @@ import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
 import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
-import { sendBookingConfirmation, sendTourConfirmation, sendTourNotification } from "./server/email.js";
+import { sendBookingConfirmation, sendBookingNotification, sendTourConfirmation, sendTourNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -149,7 +149,7 @@ app.post("/api/book", async (req, res) => {
     console.error("[/api/book] failed:", err);
     return res.status(502).json({
       error:
-        "We couldn't complete your booking right now. Please try again shortly or email jonesborovirtualoffice@gmail.com.",
+        "We couldn't complete your booking right now. Please try again shortly or email eventsjvo@gmail.com.",
     });
   }
 });
@@ -232,7 +232,7 @@ app.post("/api/book-tour", async (req, res) => {
     console.error("[/api/book-tour] failed:", err);
     return res.status(502).json({
       error:
-        "We couldn't schedule your tour right now. Please try again shortly or email jonesborovirtualoffice@gmail.com.",
+        "We couldn't schedule your tour right now. Please try again shortly or email eventsjvo@gmail.com.",
     });
   }
 });
@@ -250,7 +250,7 @@ async function processBooking(rawBooking) {
     ...rawBooking,
     space: (rawBooking.space && String(rawBooking.space).trim()) || DEFAULT_SPACE,
   };
-  const result = { deskworks: null, calendar: null, email: null, errors: [] };
+  const result = { deskworks: null, calendar: null, email: null, notification: null, errors: [] };
 
   try {
     result.deskworks = await createDeskworksReservation(booking);
@@ -266,7 +266,16 @@ async function processBooking(rawBooking) {
     result.errors.push(`calendar: ${err.message}`);
   }
 
-  // Only send the confirmation once the booking actually landed somewhere
+  // Always email the venue a copy of the submission (to the JVO contact inbox),
+  // even if the calendar/Deskworks write failed — so no booking is ever lost.
+  try {
+    result.notification = await sendBookingNotification(booking);
+  } catch (err) {
+    console.error("[processBooking] booking notification failed:", err.message);
+    result.errors.push(`notify: ${err.message}`);
+  }
+
+  // Only send the guest confirmation once the booking actually landed somewhere
   // (Deskworks or the calendar). Best-effort — a mail failure never fails a booking.
   if (result.deskworks || result.calendar) {
     try {

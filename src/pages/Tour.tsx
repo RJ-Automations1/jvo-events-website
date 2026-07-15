@@ -377,11 +377,11 @@ export default function TourPage() {
 
               <div className="text-center mt-10 space-y-2">
                 <a
-                  href="mailto:jonesborovirtualoffice@gmail.com"
+                  href="mailto:eventsjvo@gmail.com"
                   className="block text-white/50 text-sm hover:text-white/80 transition-colors"
                   style={{ fontFamily: "'Lato', sans-serif" }}
                 >
-                  Questions? jonesborovirtualoffice@gmail.com
+                  Questions? eventsjvo@gmail.com
                 </a>
                 <div className="text-white/40 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
                   Jonesboro, Georgia

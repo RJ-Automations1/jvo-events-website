@@ -11,7 +11,7 @@
  *   SMTP_HOST       optional, defaults to smtp.gmail.com
  *   SMTP_PORT       optional, defaults to 465 (SSL)
  *   MAIL_FROM       optional "JVO Events <...>" display address, defaults to SMTP_USER
- *   MAIL_REPLY_TO   optional reply-to, defaults to jonesborovirtualoffice@gmail.com
+ *   MAIL_REPLY_TO   optional reply-to + venue contact/notify inbox, defaults to eventsjvo@gmail.com
  *
  * For Gmail you must turn on 2-Step Verification and create an App Password
  * (Google Account → Security → App passwords), then use that 16-char value as
@@ -27,7 +27,7 @@ const SMTP_PORT = Number(process.env.SMTP_PORT || "465");
 const MAIL_FROM =
   process.env.MAIL_FROM || (SMTP_USER ? `JVO Events <${SMTP_USER}>` : "");
 const MAIL_REPLY_TO =
-  process.env.MAIL_REPLY_TO || "jonesborovirtualoffice@gmail.com";
+  process.env.MAIL_REPLY_TO || "eventsjvo@gmail.com";
 // Absolute URL to the JVO logo (emails can't use relative paths). Served from
 // public/manus-storage/ on the live site; override with LOGO_URL if it moves.
 const LOGO_URL =
@@ -440,6 +440,45 @@ export async function sendTourNotification(tour) {
     to: MAIL_REPLY_TO,
     replyTo: (tour.email || "").trim() || MAIL_REPLY_TO,
     subject: `New tour: ${tour.name || "Guest"} — ${dateStr} at ${timeStr}`,
+    text: lines.join("\n"),
+  });
+
+  return { configured: true, sent: true };
+}
+
+/**
+ * Notify JVO (the venue) that an event booking was submitted — a full copy of
+ * the submission, sent to MAIL_REPLY_TO (the JVO contact inbox). Fires for every
+ * booking, including JotForm webhook submissions.
+ * @param {object} booking - { name, email, phone?, eventDate, eventType?,
+ *   package?, space?, guestCount?, message?, submissionId? }
+ */
+export async function sendBookingNotification(booking) {
+  const t = getTransporter();
+  if (!t) return { configured: false, sent: false };
+  const dateStr = prettyDate(booking.eventDate);
+  const lines = [
+    `New event booking submitted for ${dateStr}.`,
+    "",
+    `Name:     ${booking.name || "—"}`,
+    `Email:    ${booking.email || "—"}`,
+    `Phone:    ${booking.phone || "—"}`,
+    `Date:     ${dateStr}`,
+    booking.eventType ? `Type:     ${booking.eventType}` : null,
+    booking.package ? `Package:  ${booking.package}` : null,
+    booking.space ? `Space:    ${booking.space}` : null,
+    booking.guestCount ? `Guests:   ${booking.guestCount}` : null,
+    booking.message ? `Notes:    ${booking.message}` : null,
+    booking.submissionId ? `JotForm submission: ${booking.submissionId}` : null,
+    "",
+    "The date is held on the JVO Google Calendar (deposit pending until paid).",
+  ].filter((l) => l !== null);
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to: MAIL_REPLY_TO,
+    replyTo: (booking.email || "").trim() || MAIL_REPLY_TO,
+    subject: `New booking: ${booking.name || "Guest"} — ${dateStr}`,
     text: lines.join("\n"),
   });
 
