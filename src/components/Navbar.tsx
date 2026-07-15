@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 
 const links = [
@@ -9,8 +9,35 @@ const links = [
   { to: "/contact", label: "Contact" },
 ];
 
-/** Weddings is its own destination — set apart at the far end of the nav. */
-const WEDDINGS_TO = "/weddings";
+/**
+ * Weddings is its own destination — set apart at the far end of the nav.
+ * Defaults to the in-app page; set VITE_WEDDINGS_URL to the standalone
+ * Weddings site's URL (e.g. the jvo-weddings Render service or a custom
+ * wedding domain) to send visitors there instead — no code change needed.
+ */
+const WEDDINGS_URL = import.meta.env.VITE_WEDDINGS_URL || "/weddings";
+const WEDDINGS_EXTERNAL = /^https?:\/\//i.test(WEDDINGS_URL);
+
+/** Renders the Weddings link as an external <a> or an in-app <Link> as configured. */
+function WeddingsLink({
+  className,
+  style,
+  children,
+}: {
+  className?: string;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  return WEDDINGS_EXTERNAL ? (
+    <a href={WEDDINGS_URL} className={className} style={style}>
+      {children}
+    </a>
+  ) : (
+    <Link to={WEDDINGS_URL} className={className} style={style}>
+      {children}
+    </Link>
+  );
+}
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -81,8 +108,7 @@ export default function Navbar() {
             </Link>
 
             {/* Weddings — its own destination, set apart at the far end */}
-            <Link
-              to={WEDDINGS_TO}
+            <WeddingsLink
               className="flex items-baseline gap-1.5 pl-6 ml-1 group"
               style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}
             >
@@ -98,7 +124,7 @@ export default function Navbar() {
               >
                 ↗
               </span>
-            </Link>
+            </WeddingsLink>
           </div>
 
           {/* Mobile toggle */}
@@ -157,8 +183,7 @@ export default function Navbar() {
           </Link>
 
           {/* Weddings — its own destination, set apart at the end */}
-          <Link
-            to={WEDDINGS_TO}
+          <WeddingsLink
             className="flex items-center justify-center gap-1.5 pt-4 mt-1"
             style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
           >
@@ -171,7 +196,7 @@ export default function Navbar() {
             <span className="text-[#c9a96a]/70 text-sm" aria-hidden="true">
               ↗
             </span>
-          </Link>
+          </WeddingsLink>
         </div>
       </div>
     </header>

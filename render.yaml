@@ -54,3 +54,53 @@ services:
       # set CHAT_MODEL=claude-haiku-4-5 for a cheaper high-volume FAQ bot.
       - key: ANTHROPIC_API_KEY
         sync: false
+
+  # Standalone "JVO Weddings" site. Same codebase and server as jvo-events, but
+  # SITE_MODE=weddings makes the root land on the Weddings page — so this gets
+  # its own onrender.com URL now and a custom wedding domain can be mapped later.
+  # Secrets are sync:false: enter them (or copy from jvo-events) when the
+  # blueprint syncs. The Weddings page itself only needs the app to build; the
+  # rest are shared so booking/chat still work if a visitor navigates the site.
+  - type: web
+    name: jvo-weddings
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: node server.js
+    envVars:
+      - key: SITE_MODE
+        value: "weddings"
+      - key: NODE_VERSION
+        value: "20"
+      - key: DESKWORKS_API_KEY
+        sync: false
+      - key: DESKWORKS_BASE_URL
+        sync: false
+      - key: GOOGLE_CALENDAR_ID
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: DESKWORKS_CENTER_ID
+        value: "6"
+      - key: DESKWORKS_UNIT_ID
+        value: "32"
+      - key: DESKWORKS_IGNORE_WEEKDAYS
+        value: "6"
+      - key: DESKWORKS_WRITE_ENABLED
+        value: "false"
+      - key: JOTFORM_WEBHOOK_SECRET
+        sync: false
+      - key: JOTFORM_API_KEY
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_REPLY_TO
+        sync: false
+      - key: PAYMENT_REMINDERS_ENABLED
+        value: "false"
+      - key: ANTHROPIC_API_KEY
+        sync: false

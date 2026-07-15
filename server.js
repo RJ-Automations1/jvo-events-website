@@ -38,6 +38,16 @@ app.use((req, res, next) => {
   next();
 });
 
+/**
+ * Standalone Weddings site: when this deploy is the dedicated Weddings service
+ * (SITE_MODE=weddings on Render), land the root on the Weddings page so the
+ * bare domain opens straight to it. Everything else still serves the full app.
+ */
+const SITE_MODE = process.env.SITE_MODE || "";
+if (SITE_MODE === "weddings") {
+  app.get("/", (_req, res) => res.redirect(302, "/weddings"));
+}
+
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
