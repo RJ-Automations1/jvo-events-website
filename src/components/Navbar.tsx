@@ -3,12 +3,14 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 
 const links = [
   { to: "/", label: "Home" },
-  { to: "/weddings", label: "Weddings" },
   { to: "/events", label: "Pricing" },
   { to: "/gallery", label: "Gallery" },
   { to: "/testimonials", label: "Testimonials" },
   { to: "/contact", label: "Contact" },
 ];
+
+/** Weddings is its own destination — set apart at the far end of the nav. */
+const WEDDINGS_TO = "/weddings";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -77,6 +79,26 @@ export default function Navbar() {
             <Link to="/book" className="btn-white" style={{ padding: "0.7rem 1.6rem" }}>
               Book Now
             </Link>
+
+            {/* Weddings — its own destination, set apart at the far end */}
+            <Link
+              to={WEDDINGS_TO}
+              className="flex items-baseline gap-1.5 pl-6 ml-1 group"
+              style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}
+            >
+              <span
+                className="text-lg font-bold tracking-tight transition-colors"
+                style={{ fontFamily: "'Playfair Display', serif", color: "#c9a96a" }}
+              >
+                Weddings
+              </span>
+              <span
+                className="text-[#c9a96a]/70 text-sm transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              >
+                ↗
+              </span>
+            </Link>
           </div>
 
           {/* Mobile toggle */}
@@ -106,7 +128,7 @@ export default function Navbar() {
       <div
         className="md:hidden overflow-hidden transition-all duration-300"
         style={{
-          maxHeight: open ? "360px" : "0px",
+          maxHeight: open ? "420px" : "0px",
           background: "rgba(8,8,8,0.97)",
           borderBottom: open ? "1px solid rgba(255,255,255,0.08)" : "none",
         }}
@@ -132,6 +154,23 @@ export default function Navbar() {
           </Link>
           <Link to="/book" className="btn-white text-center">
             Book Now
+          </Link>
+
+          {/* Weddings — its own destination, set apart at the end */}
+          <Link
+            to={WEDDINGS_TO}
+            className="flex items-center justify-center gap-1.5 pt-4 mt-1"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            <span
+              className="text-lg font-bold tracking-tight"
+              style={{ fontFamily: "'Playfair Display', serif", color: "#c9a96a" }}
+            >
+              Weddings
+            </span>
+            <span className="text-[#c9a96a]/70 text-sm" aria-hidden="true">
+              ↗
+            </span>
           </Link>
         </div>
       </div>
