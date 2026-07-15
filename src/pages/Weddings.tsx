@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -48,26 +48,109 @@ const included: { title: string; items: string[] }[] = [
 /** The all-inclusive Signature Wedding Package base price. */
 const BASE_PACKAGE = 4000;
 
-/** Enhancements with a fixed price — drive the live estimate calculator. */
-const pricedEnhancements: { label: string; price: number }[] = [
-  { label: "20×40 Premium Event Tent Package", price: 1500 },
-  { label: "Luxury Flower Wall & Pergola Décor", price: 850 },
-  { label: "Wedding Rehearsal Coordination (5 hrs)", price: 800 },
-  { label: "Licensed Wedding Officiant", price: 450 },
-  { label: "Additional 100 Chairs with Chair Covers", price: 250 },
-  { label: "Additional 50 Chairs with Chair Covers", price: 150 },
+type Enhancement = {
+  label: string;
+  price: number;
+  image: string;
+  desc: string;
+  /** Per-unit item — show a quantity stepper and multiply the price by count. */
+  perUnit?: boolean;
+  /** Short unit noun used in the summary, e.g. "table", "chair". */
+  unit?: string;
+};
+
+/**
+ * Priced enhancements — mirrored exactly from the JVO Weddings JotForm add-ons
+ * (name, price, description, and photo), so the site and the form match.
+ */
+const pricedEnhancements: Enhancement[] = [
+  {
+    label: "Premium Tent Package",
+    price: 1500,
+    image: "/manus-storage/weddings/premium-tent.png",
+    desc: "Premium event tent, 20′ × 40′.",
+  },
+  {
+    label: "Pergola Decor & Luxury Floral Wall",
+    price: 850,
+    image: "/manus-storage/weddings/pergola-floral-wall.png",
+    desc: "Pergola dressed with linens and a floral wall. Add a touch of color at no extra charge.",
+  },
+  {
+    label: "Wedding Rehearsal",
+    price: 800,
+    image: "/manus-storage/weddings/wedding-rehearsal.jpg",
+    desc: "Event venue rental for your rehearsal (5 hrs).",
+  },
+  {
+    label: "Licensed Wedding Officiant",
+    price: 450,
+    image: "/manus-storage/weddings/officiant.png",
+    desc: "A licensed officiant to conduct your wedding.",
+  },
+  {
+    label: "Patio Enclosure",
+    price: 200,
+    image: "/manus-storage/weddings/patio-enclosure.jpg",
+    desc: "Installed seasonally, Oct 15 – Apr 15. Off-season requests may add a $200 fee.",
+  },
+  {
+    label: "Round Tables",
+    price: 15,
+    image: "/manus-storage/weddings/round-table.jpg",
+    desc: "60″ round table — seats 6 to 8 guests.",
+    perUnit: true,
+    unit: "table",
+  },
+  {
+    label: "Rectangle Tables",
+    price: 10,
+    image: "/manus-storage/weddings/rectangle-table.jpg",
+    desc: "6 ft folding rectangle table.",
+    perUnit: true,
+    unit: "table",
+  },
+  {
+    label: "Additional Chairs",
+    price: 2,
+    image: "/manus-storage/weddings/folding-chairs.jpg",
+    desc: "Extra folding chairs beyond the 100 included — $2 per chair.",
+    perUnit: true,
+    unit: "chair",
+  },
 ];
 
 const fmtUSD = (n: number) => "$" + n.toLocaleString("en-US");
 
-/** Enhancements quoted per event. */
-const customQuoteEnhancements: string[] = [
-  "Wedding Coordinator",
-  "Day-of Coordinator",
-  "Ceremony / Reception Decorator",
-  "Luxury Floral Design",
-  "Balloon Décor & Custom Backdrops",
-  "Luxury Table Linens & Specialty Rentals",
+/** The live JVO Weddings JotForm (public form ID). */
+const JOTFORM_ID = "261945498570168";
+
+/**
+ * Field "unique names" in the JotForm that the estimate is prefilled into.
+ *
+ * These MUST match the Unique Name of each field in the JotForm builder
+ * (Field → Properties → Advanced → "Field Details" → Unique Name). If a name
+ * doesn't match a real field, that value is simply ignored — nothing breaks.
+ * Add three fields to the form (e.g. hidden / short-text) named accordingly:
+ */
+const PREFILL_FIELDS = {
+  package: "package",
+  enhancements: "enhancements",
+  estimatedTotal: "estimatedTotal",
+} as const;
+
+/** Enhancements quoted per event — the "Free / personalized quote" add-ons from the form. */
+const customQuoteEnhancements: { label: string; image: string; desc: string }[] = [
+  {
+    label: "Wedding Decorator",
+    image: "/manus-storage/weddings/wedding-decorator.png",
+    desc: "Bring your vision to life with our preferred decorator — elegant and timeless to modern and luxurious. Pricing varies by your décor selections; select this and the decorator will reach out with a personalized quote.",
+  },
+  {
+    label: "Wedding Planner / Event Coordinator",
+    image: "/manus-storage/weddings/wedding-planner.jpg",
+    desc: "Full-service, partial, or day-of coordination from our preferred planner. Pricing varies by level of service; select this and the planner will reach out with a personalized quote.",
+  },
 ];
 
 /** Trusted preferred vendors we can connect you with. */
@@ -95,65 +178,152 @@ const reasons: string[] = [
   "Stress-free setup and breakdown",
 ];
 
+/** A chosen line item — an enhancement plus how many were added and its subtotal. */
+type ChosenItem = Enhancement & { index: number; count: number; subtotal: number };
+
 /**
  * Live estimate builder — starts at the $4,000 Signature Package and adds the
- * tapped enhancements, updating the running total instantly.
+ * chosen enhancements (with quantities for per-unit items like tables and
+ * chairs), updating the running total instantly.
  */
-function EstimateCalculator() {
-  const [selected, setSelected] = useState<Record<number, boolean>>({});
-  const toggle = (i: number) => setSelected((s) => ({ ...s, [i]: !s[i] }));
-  const chosen = pricedEnhancements.filter((_, i) => selected[i]);
-  const total = BASE_PACKAGE + chosen.reduce((sum, e) => sum + e.price, 0);
-
+function EstimateCalculator({
+  counts,
+  setCount,
+  chosen,
+  total,
+}: {
+  counts: Record<number, number>;
+  setCount: (i: number, n: number) => void;
+  chosen: ChosenItem[];
+  total: number;
+}) {
   return (
     <div className="grid gap-8 lg:grid-cols-5">
-      {/* Add-on toggles */}
+      {/* Add-on cards */}
       <div className="lg:col-span-3">
         <p
           className="text-white/45 text-xs tracking-[0.2em] uppercase mb-4"
           style={{ fontFamily: "'Lato', sans-serif" }}
         >
-          Tap an enhancement to add it
+          Add the enhancements you'd like
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {pricedEnhancements.map((e, i) => {
-            const on = !!selected[i];
+            const count = counts[i] ?? 0;
+            const on = count > 0;
             return (
-              <button
+              <div
                 key={e.label}
-                type="button"
-                onClick={() => toggle(i)}
-                aria-pressed={on}
-                className="flex items-center justify-between gap-3 p-5 text-left transition-colors"
+                className="flex flex-col overflow-hidden transition-colors"
                 style={{
                   border: on ? "1px solid #c9a96a" : "1px solid rgba(255,255,255,0.12)",
-                  background: on ? "rgba(201,169,106,0.10)" : "rgba(255,255,255,0.03)",
+                  background: on ? "rgba(201,169,106,0.08)" : "rgba(255,255,255,0.03)",
                 }}
               >
-                <span className="flex items-center gap-3">
-                  <span
-                    className="grid place-items-center shrink-0"
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 3,
-                      border: on ? "1px solid #c9a96a" : "1px solid rgba(255,255,255,0.3)",
-                      background: on ? "#c9a96a" : "transparent",
-                      color: "#0b0b0b",
-                      fontSize: 13,
-                      fontWeight: 700,
-                    }}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    height: 150,
+                    backgroundImage: `url(${e.image})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }}
+                />
+                <div className="flex flex-col grow p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <span
+                      className="text-white text-base font-semibold leading-snug"
+                      style={{ fontFamily: "'Playfair Display', serif" }}
+                    >
+                      {e.label}
+                    </span>
+                    <span
+                      className="text-white font-bold shrink-0 text-right leading-snug"
+                      style={{ fontFamily: "'Lato', sans-serif" }}
+                    >
+                      {fmtUSD(e.price)}
+                      {e.perUnit && (
+                        <span className="block text-white/40 text-[0.65rem] font-normal">
+                          per {e.unit}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  <p
+                    className="text-white/50 text-xs leading-relaxed mt-2 grow"
+                    style={{ fontFamily: "'Lato', sans-serif" }}
                   >
-                    {on ? "✓" : ""}
-                  </span>
-                  <span className="text-white/85 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
-                    {e.label}
-                  </span>
-                </span>
-                <span className="text-white font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>
-                  {fmtUSD(e.price)}
-                </span>
-              </button>
+                    {e.desc}
+                  </p>
+
+                  {e.perUnit ? (
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setCount(i, Math.max(0, count - 1))}
+                          disabled={count === 0}
+                          aria-label={`Remove one ${e.unit}`}
+                          className="grid place-items-center text-lg leading-none disabled:opacity-30"
+                          style={{
+                            width: 32,
+                            height: 32,
+                            border: "1px solid rgba(255,255,255,0.25)",
+                            color: "#fff",
+                          }}
+                        >
+                          −
+                        </button>
+                        <span
+                          className="text-white font-bold w-6 text-center"
+                          style={{ fontFamily: "'Lato', sans-serif" }}
+                        >
+                          {count}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCount(i, count + 1)}
+                          aria-label={`Add one ${e.unit}`}
+                          className="grid place-items-center text-lg leading-none"
+                          style={{
+                            width: 32,
+                            height: 32,
+                            border: "1px solid #c9a96a",
+                            background: "#c9a96a",
+                            color: "#0b0b0b",
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {on && (
+                        <span
+                          className="text-white/80 text-sm font-bold"
+                          style={{ fontFamily: "'Lato', sans-serif" }}
+                        >
+                          {fmtUSD(e.price * count)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCount(i, on ? 0 : 1)}
+                      aria-pressed={on}
+                      className="mt-4 py-2.5 text-sm font-semibold tracking-wide uppercase transition-colors"
+                      style={{
+                        border: on ? "1px solid #c9a96a" : "1px solid rgba(255,255,255,0.25)",
+                        background: on ? "#c9a96a" : "transparent",
+                        color: on ? "#0b0b0b" : "#fff",
+                        fontFamily: "'Lato', sans-serif",
+                      }}
+                    >
+                      {on ? "✓ Added" : "Add"}
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>
@@ -200,8 +370,11 @@ function EstimateCalculator() {
                   className="flex items-baseline justify-between gap-3 text-sm"
                   style={{ fontFamily: "'Lato', sans-serif" }}
                 >
-                  <span className="text-white/70">{e.label}</span>
-                  <span className="text-white/70 shrink-0">{fmtUSD(e.price)}</span>
+                  <span className="text-white/70">
+                    {e.label}
+                    {e.perUnit ? ` × ${e.count}` : ""}
+                  </span>
+                  <span className="text-white/70 shrink-0">{fmtUSD(e.subtotal)}</span>
                 </li>
               ))}
             </ul>
@@ -226,18 +399,80 @@ function EstimateCalculator() {
             separately.
           </p>
 
-          <Link to="/book" className="btn-white w-full text-center mt-6 inline-block">
-            Book Your Wedding
-          </Link>
+          <a href="#reserve" className="btn-white w-full text-center mt-6 inline-block">
+            Continue to Booking
+          </a>
         </div>
       </div>
     </div>
   );
 }
 
+/**
+ * Embedded JotForm reservation form. The couple's live estimate — the Signature
+ * Package plus any enhancements they tapped — is carried into the form through
+ * URL prefill, so their inquiry arrives with the total already attached.
+ */
+function ReserveForm({
+  chosen,
+  total,
+}: {
+  chosen: ChosenItem[];
+  total: number;
+}) {
+  const src = useMemo(() => {
+    const p = new URLSearchParams();
+    p.set(PREFILL_FIELDS.package, `Signature Wedding Package (${fmtUSD(BASE_PACKAGE)})`);
+    if (chosen.length)
+      p.set(
+        PREFILL_FIELDS.enhancements,
+        chosen.map((e) => (e.perUnit ? `${e.label} ×${e.count}` : e.label)).join(", "),
+      );
+    p.set(PREFILL_FIELDS.estimatedTotal, fmtUSD(total));
+    return `https://form.jotform.com/${JOTFORM_ID}?${p.toString()}`;
+  }, [chosen, total]);
+
+  // JotForm's embed handler auto-resizes the iframe to match the form's height.
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jotform.com/s/umd/latest/for-form-embed-handler.js";
+    script.async = true;
+    script.onload = () =>
+      (
+        window as unknown as { jotformEmbedHandler?: (sel: string, origin: string) => void }
+      ).jotformEmbedHandler?.(`iframe[id='JotFormIFrame-${JOTFORM_ID}']`, "https://form.jotform.com");
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  return (
+    <iframe
+      id={`JotFormIFrame-${JOTFORM_ID}`}
+      title="Reserve your JVO wedding date"
+      src={src}
+      allow="geolocation; microphone; camera; fullscreen; payment"
+      scrolling="no"
+      style={{ width: "1px", minWidth: "100%", height: 1100, border: "none", background: "transparent" }}
+    />
+  );
+}
+
 export default function Weddings() {
   useReveal();
   const heroRef = useRef<HTMLVideoElement>(null);
+
+  // Shared estimate state — item index → quantity (0/1 for fixed items, 0..N for per-unit).
+  const [counts, setCounts] = useState<Record<number, number>>({});
+  const setCount = (i: number, n: number) => setCounts((c) => ({ ...c, [i]: n }));
+  const chosen: ChosenItem[] = pricedEnhancements
+    .map((e, index) => {
+      const count = counts[index] ?? 0;
+      return { ...e, index, count, subtotal: e.price * count };
+    })
+    .filter((e) => e.count > 0);
+  const total = BASE_PACKAGE + chosen.reduce((sum, e) => sum + e.subtotal, 0);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh" }}>
@@ -278,11 +513,11 @@ export default function Weddings() {
               focus on making memories.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-9">
-              <Link to="/book" className="btn-white">
+              <a href="#reserve" className="btn-white">
                 Book Your Wedding
-              </Link>
+              </a>
             </div>
-            <p className="text-[#c9a96a] text-sm tracking-[0.25em] uppercase mt-8" style={{ fontFamily: "'Lato', sans-serif" }}>
+            <p className="text-[#c9a96a] text-base sm:text-lg tracking-[0.25em] uppercase mt-8" style={{ fontFamily: "'Lato', sans-serif" }}>
               Packages starting at $4,000
             </p>
           </div>
@@ -292,7 +527,7 @@ export default function Weddings() {
       {/* Intro */}
       <section style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+          <p className="reveal text-[#c9a96a] text-sm sm:text-base tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
             One Venue · Ceremony &amp; Reception
           </p>
           <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -313,7 +548,7 @@ export default function Weddings() {
       <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+            <p className="reveal text-[#c9a96a] text-sm sm:text-base tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
               The Signature Wedding Package
             </p>
             <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -366,7 +601,7 @@ export default function Weddings() {
           </div>
 
           <div className="reveal">
-            <EstimateCalculator />
+            <EstimateCalculator counts={counts} setCount={setCount} chosen={chosen} total={total} />
           </div>
 
           {/* Custom-quote enhancements */}
@@ -375,17 +610,41 @@ export default function Weddings() {
             style={{ border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.03)" }}
           >
             <span className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase block mb-1" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Tailored to Your Day · Custom Quote
+              Tailored to Your Day · Personalized Quote
             </span>
             <h3 className="text-white text-xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Design &amp; décor services
+              Design &amp; planning services
             </h3>
-            <div className="accent-divider mt-4 mb-5" />
-            <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+            <div className="accent-divider mt-4 mb-6" />
+            <div className="grid gap-5 sm:grid-cols-2">
               {customQuoteEnhancements.map((c) => (
-                <div key={c} className="flex gap-3 text-white/60 text-sm leading-relaxed" style={{ fontFamily: "'Lato', sans-serif" }}>
-                  <span className="text-[#c9a96a] shrink-0">•</span>
-                  <span>{c}</span>
+                <div
+                  key={c.label}
+                  className="flex flex-col overflow-hidden"
+                  style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)" }}
+                >
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      height: 160,
+                      backgroundImage: `url(${c.image})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  />
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <h4 className="text-white text-base font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                        {c.label}
+                      </h4>
+                      <span className="text-[#c9a96a] text-[0.65rem] tracking-[0.2em] uppercase shrink-0 mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>
+                        Quote
+                      </span>
+                    </div>
+                    <p className="text-white/55 text-xs leading-relaxed mt-2" style={{ fontFamily: "'Lato', sans-serif" }}>
+                      {c.desc}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -483,12 +742,39 @@ export default function Weddings() {
             makes your wedding unforgettable.
           </p>
           <div className="reveal flex flex-wrap items-center justify-center gap-4 mt-9">
-            <Link to="/book" className="btn-white">
+            <a href="#reserve" className="btn-white">
               Book Your Wedding
-            </Link>
+            </a>
             <Link to="/contact" className="btn-outline">
               Ask a Question
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Reserve your date — embedded JotForm, prefilled with the live estimate */}
+      <section id="reserve" style={{ background: "#080808", padding: "90px 0", scrollMarginTop: "80px" }}>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <p className="reveal text-white/40 text-xs tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
+              Let's Make It Official
+            </p>
+            <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+              Reserve your wedding date
+            </h2>
+            <div className="reveal accent-divider mx-auto mt-5" />
+            <p className="reveal text-white/55 text-base sm:text-lg leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
+              Tell us about your day and we'll be in touch. Your{" "}
+              <span style={{ color: "#c9a96a", fontWeight: 700 }}>{fmtUSD(total)}</span> estimate
+              {chosen.length > 0
+                ? ` and ${chosen.length} selected enhancement${chosen.length > 1 ? "s" : ""}`
+                : ""}{" "}
+              travel with your inquiry.
+            </p>
+          </div>
+
+          <div className="reveal" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)", padding: "8px" }}>
+            <ReserveForm chosen={chosen} total={total} />
           </div>
         </div>
       </section>
