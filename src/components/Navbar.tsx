@@ -100,31 +100,29 @@ export default function Navbar() {
                 {l.label}
               </NavLink>
             ))}
+
+            {/* Weddings — its own destination, right after Contact */}
+            <WeddingsLink className="flex items-baseline gap-1 group">
+              <span
+                className="text-xs font-bold tracking-[0.18em] uppercase transition-colors"
+                style={{ fontFamily: "'Lato', sans-serif", color: "#c9a96a" }}
+              >
+                Weddings
+              </span>
+              <span
+                className="text-[#c9a96a]/70 text-xs transition-transform group-hover:translate-x-0.5"
+                aria-hidden="true"
+              >
+                ↗
+              </span>
+            </WeddingsLink>
+
             <Link to="/tour" className="btn-outline" style={{ padding: "0.7rem 1.6rem" }}>
               Book a Tour
             </Link>
             <Link to="/book" className="btn-white" style={{ padding: "0.7rem 1.6rem" }}>
               Book Now
             </Link>
-
-            {/* Weddings — its own destination, set apart at the far end */}
-            <WeddingsLink
-              className="flex items-baseline gap-1.5 pl-6 ml-1 group"
-              style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}
-            >
-              <span
-                className="text-lg font-bold tracking-tight transition-colors"
-                style={{ fontFamily: "'Playfair Display', serif", color: "#c9a96a" }}
-              >
-                Weddings
-              </span>
-              <span
-                className="text-[#c9a96a]/70 text-sm transition-transform group-hover:translate-x-0.5"
-                aria-hidden="true"
-              >
-                ↗
-              </span>
-            </WeddingsLink>
           </div>
 
           {/* Mobile toggle */}
@@ -175,21 +173,12 @@ export default function Navbar() {
               {l.label}
             </NavLink>
           ))}
-          <Link to="/tour" className="btn-outline text-center mt-1">
-            Book a Tour
-          </Link>
-          <Link to="/book" className="btn-white text-center">
-            Book Now
-          </Link>
 
-          {/* Weddings — its own destination, set apart at the end */}
-          <WeddingsLink
-            className="flex items-center justify-center gap-1.5 pt-4 mt-1"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.1)" }}
-          >
+          {/* Weddings — its own destination, right after Contact */}
+          <WeddingsLink className="flex items-center gap-1.5">
             <span
-              className="text-lg font-bold tracking-tight"
-              style={{ fontFamily: "'Playfair Display', serif", color: "#c9a96a" }}
+              className="text-sm font-bold tracking-[0.15em] uppercase"
+              style={{ fontFamily: "'Lato', sans-serif", color: "#c9a96a" }}
             >
               Weddings
             </span>
@@ -197,6 +186,13 @@ export default function Navbar() {
               ↗
             </span>
           </WeddingsLink>
+
+          <Link to="/tour" className="btn-outline text-center mt-1">
+            Book a Tour
+          </Link>
+          <Link to="/book" className="btn-white text-center">
+            Book Now
+          </Link>
         </div>
       </div>
     </header>
