@@ -136,9 +136,6 @@ export default function Weddings() {
               <Link to="/book" className="btn-white">
                 Book Your Wedding
               </Link>
-              <Link to="/gallery" className="btn-outline">
-                View the Venue
-              </Link>
             </div>
             <p className="text-[#c9a96a] text-sm tracking-[0.25em] uppercase mt-8" style={{ fontFamily: "'Lato', sans-serif" }}>
               Packages starting at $4,000
