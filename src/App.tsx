@@ -4,6 +4,7 @@ import Home from "@/pages/Home";
 import Gallery from "@/pages/Gallery";
 import Contact from "@/pages/Contact";
 import Corporate from "@/pages/Corporate";
+import Weddings from "@/pages/Weddings";
 import Testimonials from "@/pages/Testimonials";
 import Book from "@/pages/Book";
 import Tour from "@/pages/Tour";
@@ -27,6 +28,8 @@ export default function App() {
         <Route path="/gallery" element={<Gallery />} />
         <Route path="/events" element={<Corporate />} />
         <Route path="/corporate" element={<Corporate />} />
+        <Route path="/weddings" element={<Weddings />} />
+        <Route path="/wedding" element={<Weddings />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/book" element={<Book />} />
