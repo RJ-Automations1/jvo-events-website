@@ -8,7 +8,7 @@ import { VIDEO, VIDEO_POSTER } from "@/lib/media";
 /** What's included in the Signature Wedding Package — straight from the package sheet. */
 const included: { title: string; items: string[] }[] = [
   {
-    title: "Venue Access",
+    title: "Wedding Venue Access",
     items: [
       "Indoor private bridal & groom preparation area",
       "Outdoor ceremony garden",
@@ -21,7 +21,7 @@ const included: { title: string; items: string[] }[] = [
     items: [
       "100 white chair covers (included)",
       "4 60-inch banquet tables",
-      "25 folding chairs",
+      "125 folding chairs",
       "2 6ft tables · 2 6ft rectangle tables",
       "2 highboy tables",
       "6 steam tables",
@@ -80,7 +80,7 @@ const pricedEnhancements: Enhancement[] = [
     label: "Wedding Rehearsal",
     price: 800,
     image: "/manus-storage/weddings/wedding-rehearsal.jpg",
-    desc: "Event venue rental for your rehearsal (5 hrs).",
+    desc: "Wedding venue rental for your rehearsal (5 hrs).",
   },
   {
     label: "Licensed Wedding Officiant",
@@ -168,13 +168,13 @@ const preferredVendors: string[] = [
 
 /** Why couples choose JVO. */
 const reasons: string[] = [
-  "Elegant indoor and outdoor ceremony spaces",
-  "100 premium covered chairs included",
+  "Elegant indoor and outdoor wedding ceremony spaces",
+  "125 premium covered chairs included",
   "Professional event staff included",
   "Beautiful pergola ceremony setting",
   "Outdoor kitchen",
-  "Affordable luxury venue",
-  "Access to trusted preferred vendors",
+  "Affordable luxury wedding venue",
+  "Access to trusted preferred wedding vendors",
   "Stress-free setup and breakdown",
 ];
 
@@ -348,7 +348,7 @@ function EstimateCalculator({
                 Signature Wedding Package
               </div>
               <div className="text-white/45 text-xs mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>
-                Venue · furniture · full staffing
+                Wedding venue · furniture · full staffing
               </div>
             </div>
             <div className="text-white font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>
@@ -463,6 +463,27 @@ export default function Weddings() {
   useReveal();
   const heroRef = useRef<HTMLVideoElement>(null);
 
+  /**
+   * Wedding-specific page title + meta description. The shared index.html targets
+   * "event space", which buries the primary keyword on this page — this swaps in
+   * wedding-venue wording (and restores the default when navigating away).
+   */
+  useEffect(() => {
+    const prevTitle = document.title;
+    const tag = document.querySelector('meta[name="description"]');
+    const prevDesc = tag?.getAttribute("content") ?? "";
+    document.title =
+      "Wedding Venue in Jonesboro, GA | Indoor & Outdoor Wedding Venue Near Atlanta | JVO Events";
+    tag?.setAttribute(
+      "content",
+      "JVO Events is an elegant indoor & outdoor wedding venue in Jonesboro, GA, minutes from Atlanta. All-inclusive wedding packages from $4,000 with professional event staff, ceremony & reception space, setup and breakdown included."
+    );
+    return () => {
+      document.title = prevTitle;
+      tag?.setAttribute("content", prevDesc);
+    };
+  }, []);
+
   // Shared estimate state — item index → quantity (0/1 for fixed items, 0..N for per-unit).
   const [counts, setCounts] = useState<Record<number, number>>({});
   const setCount = (i: number, n: number) => setCounts((c) => ({ ...c, [i]: n }));
@@ -501,16 +522,17 @@ export default function Weddings() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="max-w-2xl">
             <p className="text-white/55 text-xs sm:text-sm tracking-[0.3em] uppercase mb-4" style={{ fontFamily: "'Lato', sans-serif" }}>
-              The JVO Signature Wedding Experience
+              Elegant Wedding Venue · Jonesboro, GA · Metro Atlanta
             </p>
             <h1 className="text-white text-5xl sm:text-6xl font-bold leading-[1.05]" style={{ fontFamily: "'Playfair Display', serif" }}>
               Say “I do” at JVO
             </h1>
             <div className="accent-divider mt-6" />
             <p className="text-white/70 text-base sm:text-lg leading-relaxed mt-6 max-w-xl" style={{ fontFamily: "'Lato', sans-serif" }}>
-              An elegant indoor & outdoor venue, professional event staffing, and premium
-              amenities — a seamless celebration from setup through breakdown, so you can
-              focus on making memories.
+              An elegant indoor &amp; outdoor wedding venue in Jonesboro, GA — just minutes
+              from Atlanta — with professional event staff and premium amenities. A seamless
+              wedding ceremony and reception from setup through breakdown, so you can focus on
+              making memories.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-9">
               <a href="#reserve" className="btn-white">
@@ -528,18 +550,19 @@ export default function Weddings() {
       <section style={{ background: "#080808", padding: "90px 0" }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="reveal text-[#c9a96a] text-base sm:text-lg tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-            One Venue · Ceremony &amp; Reception
+            One Wedding Venue · Ceremony &amp; Reception
           </p>
           <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
             Celebrate your special day, all in one place
           </h2>
           <div className="reveal accent-divider mx-auto mt-5" />
           <p className="reveal text-white/60 text-base sm:text-lg leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
-            Our Signature Wedding Package combines a beautiful indoor and outdoor venue,
-            professional event staffing, premium amenities, and personalized service from
-            setup through breakdown. Whether you're planning an intimate ceremony or a grand
-            celebration, JVO Event Space provides a seamless experience while allowing you to
-            focus on making memories.
+            Our Signature Wedding Package combines a stunning indoor and outdoor wedding
+            venue, professional event staff, premium amenities, and personalized service from
+            setup to breakdown. Whether you're planning an intimate ceremony or a grand
+            celebration, JVO Events provides a seamless wedding experience, allowing you to
+            relax and focus on creating unforgettable memories while we take care of the
+            details.
           </p>
         </div>
       </section>
@@ -549,16 +572,16 @@ export default function Weddings() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="reveal text-[#c9a96a] text-sm sm:text-base tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
-              The Signature Wedding Package
+              All-Inclusive Wedding Package
             </p>
             <h2 className="reveal text-white text-3xl sm:text-4xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
               Everything included for <span style={{ color: "#c9a96a" }}>$4,000</span>
             </h2>
             <div className="reveal accent-divider mx-auto mt-5" />
             <p className="reveal text-white/55 text-base sm:text-lg leading-relaxed mt-6 max-w-2xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
-              One all-inclusive price covers the venue, furniture, and full professional
-              staffing below — then build your total with optional enhancements in the estimate
-              builder underneath.
+              Our Signature Wedding Package includes the wedding venue, tables, chairs, and
+              professional event staff. Personalize your wedding by selecting from our optional
+              enhancements below to create a celebration that's uniquely yours.
             </p>
           </div>
 
@@ -709,7 +732,8 @@ export default function Weddings() {
               </h2>
               <div className="accent-divider mt-5" />
               <p className="text-white/60 text-base leading-relaxed mt-5" style={{ fontFamily: "'Lato', sans-serif" }}>
-                Host your wedding and reception at the same venue — at an affordable price.
+                Host your wedding ceremony and reception at the same wedding venue near
+                Atlanta — at an affordable price.
               </p>
               <ul className="mt-7 space-y-3">
                 {reasons.map((r) => (
@@ -737,7 +761,8 @@ export default function Weddings() {
           <p className="reveal text-white/60 text-base sm:text-lg leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
             Picture your guests arriving to a beautifully decorated pergola ceremony surrounded
             by elegant seating and luxurious floral décor. After exchanging vows, family and
-            friends continue celebrating in our stylish venue while our professional team
+            friends continue celebrating in our stylish wedding reception venue while our
+            professional team
             manages every detail behind the scenes. From setup to final cleanup, JVO Event Space
             makes your wedding unforgettable.
           </p>

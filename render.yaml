@@ -54,6 +54,12 @@ services:
       # set CHAT_MODEL=claude-haiku-4-5 for a cheaper high-volume FAQ bot.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Sends the nav's "Weddings" link to the standalone JVO Weddings site
+      # instead of the in-app /weddings page. Swap in a custom wedding domain
+      # when one is mapped. NOTE: VITE_* vars are baked in at BUILD time, so a
+      # change here only takes effect after a redeploy.
+      - key: VITE_WEDDINGS_URL
+        value: "https://jvo-weddings.onrender.com"
 
   # Standalone "JVO Weddings" site. Same codebase and server as jvo-events, but
   # SITE_MODE=weddings makes the root land on the Weddings page — so this gets
