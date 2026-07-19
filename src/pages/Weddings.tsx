@@ -19,7 +19,7 @@ const included: { title: string; items: string[] }[] = [
   {
     title: "Furniture & Equipment",
     items: [
-      "100 white chair covers (included)",
+      "125 white chair covers (included)",
       "4 60-inch banquet tables",
       "125 folding chairs",
       "2 6ft tables · 2 6ft rectangle tables",
