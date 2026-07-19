@@ -19,6 +19,11 @@
  */
 
 import nodemailer from "nodemailer";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASS = process.env.SMTP_PASS || "";
@@ -28,10 +33,44 @@ const MAIL_FROM =
   process.env.MAIL_FROM || (SMTP_USER ? `JVO Events <${SMTP_USER}>` : "");
 const MAIL_REPLY_TO =
   process.env.MAIL_REPLY_TO || "eventsjvo@gmail.com";
-// Absolute URL to the JVO logo (emails can't use relative paths). Served from
-// public/manus-storage/ on the live site; override with LOGO_URL if it moves.
+/**
+ * Email logo.
+ * -----------
+ * The logo ships with the app, so we attach it inline (a "cid:" reference)
+ * rather than hotlinking it. That matters for two reasons:
+ *   1. jvoevents.com is a domain forwarder — it redirects "/" to the Render app
+ *      but 404s deep paths, so a hotlinked /manus-storage/... URL never loads.
+ *   2. Many mail clients block remote images by default; inline attachments
+ *      render without the recipient clicking "show images".
+ * LOGO_URL is only a fallback for when the file isn't on disk; point it at a
+ * host that actually serves the asset (the Render URL does).
+ */
+const LOGO_CID = "jvo-logo";
+const LOGO_FILE =
+  [
+    path.join(__dirname, "..", "public", "manus-storage", "jvo-logo.png"),
+    path.join(__dirname, "..", "dist", "manus-storage", "jvo-logo.png"),
+  ].find((p) => fs.existsSync(p)) || null;
 const LOGO_URL =
-  process.env.LOGO_URL || "https://jvoevents.com/manus-storage/jvo-logo.png";
+  process.env.LOGO_URL ||
+  "https://jvo-events.onrender.com/manus-storage/jvo-logo.png";
+/** What the <img> points at: the inline attachment when we have the file. */
+const LOGO_SRC = LOGO_FILE ? `cid:${LOGO_CID}` : LOGO_URL;
+/** Attachment list that backs LOGO_SRC — empty when falling back to a URL. */
+const LOGO_ATTACHMENTS = LOGO_FILE
+  ? [
+      {
+        filename: "jvo-logo.png",
+        path: LOGO_FILE,
+        cid: LOGO_CID,
+        contentDisposition: "inline",
+      },
+    ]
+  : [];
+
+if (!LOGO_FILE) {
+  console.warn(`[email] logo file not found on disk — falling back to ${LOGO_URL}`);
+}
 
 let transporter = null;
 function getTransporter() {
@@ -343,7 +382,7 @@ function buildTourHtml(name, dateStr, timeStr) {
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e7e2d8;">
             <tr>
               <td style="background:#0b0b0b;padding:28px 36px 26px 36px;text-align:center;">
-                <img src="${LOGO_URL}" width="132" alt="Jonesboro Virtual Offices &amp; Suites" style="display:block;width:132px;max-width:55%;height:auto;margin:0 auto 14px auto;border:0;" />
+                <img src="${LOGO_SRC}" width="132" alt="Jonesboro Virtual Offices &amp; Suites" style="display:block;width:132px;max-width:55%;height:auto;margin:0 auto 14px auto;border:0;" />
                 <div style="font-family:Arial,Helvetica,sans-serif;color:#c9a96a;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Tour Confirmed</div>
               </td>
             </tr>
@@ -410,6 +449,7 @@ export async function sendTourConfirmation(tour) {
     subject: `Your JVO Events tour is confirmed — ${dateStr} at ${timeStr}`,
     text: buildTourText(firstName, dateStr, timeStr),
     html: buildTourHtml(firstName, dateStr, timeStr),
+    attachments: LOGO_ATTACHMENTS,
   });
 
   return { configured: true, sent: true };
