@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
 import Home from "@/pages/Home";
 import Gallery from "@/pages/Gallery";
 import Contact from "@/pages/Contact";
@@ -21,6 +22,24 @@ function ScrollToTop() {
 }
 
 export default function App() {
+  // Standalone JVO Weddings site: the weddings page IS the homepage, and only
+  // wedding-relevant routes exist — anything else lands back on the homepage.
+  if (IS_WEDDINGS_SITE) {
+    return (
+      <>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/" element={<Weddings />} />
+          <Route path="/book" element={<Book />} />
+          <Route path="/tour" element={<Tour />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <ChatWidget />
+      </>
+    );
+  }
+
   return (
     <>
       <ScrollToTop />

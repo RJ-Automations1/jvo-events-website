@@ -43,10 +43,8 @@ app.use((req, res, next) => {
  * (SITE_MODE=weddings on Render), land the root on the Weddings page so the
  * bare domain opens straight to it. Everything else still serves the full app.
  */
-const SITE_MODE = process.env.SITE_MODE || "";
-if (SITE_MODE === "weddings") {
-  app.get("/", (_req, res) => res.redirect(302, "/weddings"));
-}
+// (The weddings build now renders the weddings page AT the root — see
+// VITE_SITE_MODE in src/lib/siteMode.ts — so no server-side redirect is needed.)
 
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

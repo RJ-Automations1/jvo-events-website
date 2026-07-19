@@ -1,5 +1,7 @@
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
+import WeddingsNavbar from "@/components/WeddingsNavbar";
 
 const links = [
   { to: "/", label: "Home" },
@@ -40,6 +42,13 @@ function WeddingsLink({
 }
 
 export default function Navbar() {
+  // On the standalone JVO Weddings deployment every page uses the wedding-only
+  // shell, so the events nav never appears there.
+  if (IS_WEDDINGS_SITE) return <WeddingsNavbar />;
+  return <EventsNavbar />;
+}
+
+function EventsNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();

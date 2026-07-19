@@ -76,6 +76,11 @@ services:
     envVars:
       - key: SITE_MODE
         value: "weddings"
+      # Build-time flag that makes this deployment a STANDALONE weddings site:
+      # wedding-only nav/footer, weddings page at the root, no events pages.
+      # VITE_* is baked in at build time, so changes need a redeploy.
+      - key: VITE_SITE_MODE
+        value: "weddings"
       - key: NODE_VERSION
         value: "20"
       - key: DESKWORKS_API_KEY

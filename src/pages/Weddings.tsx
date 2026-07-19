@@ -568,7 +568,7 @@ export default function Weddings() {
       </section>
 
       {/* What's included */}
-      <section style={{ background: "#0b0b0b", padding: "90px 0" }}>
+      <section id="included" style={{ background: "#0b0b0b", padding: "90px 0", scrollMarginTop: "80px" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <p className="reveal text-[#c9a96a] text-sm sm:text-base tracking-[0.3em] uppercase mb-3" style={{ fontFamily: "'Lato', sans-serif" }}>
