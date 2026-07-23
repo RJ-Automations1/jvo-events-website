@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
 import Home from "@/pages/Home";
 import Gallery from "@/pages/Gallery";
+import Venue from "@/pages/Venue";
 import Contact from "@/pages/Contact";
 import Corporate from "@/pages/Corporate";
 import Weddings from "@/pages/Weddings";
@@ -46,6 +47,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/gallery" element={<Gallery />} />
+        <Route path="/venue" element={<Venue />} />
+        <Route path="/space" element={<Venue />} />
         <Route path="/events" element={<Corporate />} />
         <Route path="/corporate" element={<Corporate />} />
         <Route path="/weddings" element={<Weddings />} />

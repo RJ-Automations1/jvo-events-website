@@ -2,9 +2,16 @@ import { useEffect, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
+import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
 
-/** JotForm event-registration form (replaces the old calendar/Deskworks flow). */
-const JOTFORM_ID = "222155218269153";
+/**
+ * JotForm registration forms — events and weddings are separate forms so each
+ * inquiry lands in the right pipeline. The weddings deployment must NEVER show
+ * the events form (and vice versa).
+ */
+const EVENTS_JOTFORM_ID = "222155218269153";
+const WEDDINGS_JOTFORM_ID = "261945498570168";
+const JOTFORM_ID = IS_WEDDINGS_SITE ? WEDDINGS_JOTFORM_ID : EVENTS_JOTFORM_ID;
 const JOTFORM_SRC = `https://form.jotform.com/${JOTFORM_ID}`;
 /** After the form is submitted, send the guest here to pay the $150 deposit. */
 const CHEDDARUP_DEPOSIT_URL =
@@ -37,7 +44,9 @@ export default function BookingPage() {
         typeof s === "string" && /submission-(completed|end)|thank[\s-]?you/i.test(s);
       const action =
         data && typeof data === "object" ? (data as { action?: unknown }).action : undefined;
-      if (looksComplete(action) || looksComplete(data)) {
+      // Weddings inquiries don't pay the events security deposit — the team
+      // follows up personally, so stay on the JotForm thank-you screen.
+      if (!IS_WEDDINGS_SITE && (looksComplete(action) || looksComplete(data))) {
         window.location.href = CHEDDARUP_DEPOSIT_URL;
       }
     };
@@ -72,12 +81,13 @@ export default function BookingPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="reveal text-center mb-10">
             <h2 className="text-white text-2xl sm:text-3xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
-              Reserve the Outdoor Event Center
+              {IS_WEDDINGS_SITE ? "Reserve Your Wedding Date" : "Reserve the Outdoor Event Center"}
             </h2>
             <div className="accent-divider mx-auto mt-5" />
             <p className="text-white/50 text-base leading-relaxed mt-6 max-w-xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Tell us about your event in the quick form below — no account needed.
-              When you submit, we'll take you straight to pay your $150 security deposit.
+              {IS_WEDDINGS_SITE
+                ? "Tell us about your special day in the quick form below — no account needed. We'll be in touch to create a personalized experience."
+                : "Tell us about your event in the quick form below — no account needed. When you submit, we'll take you straight to pay your $150 security deposit."}
             </p>
           </div>
 
@@ -87,7 +97,7 @@ export default function BookingPage() {
           >
             <iframe
               ref={iframeRef}
-              title="JVO Event Space Registration Form"
+              title={IS_WEDDINGS_SITE ? "JVO Weddings Registration Form" : "JVO Event Space Registration Form"}
               src={JOTFORM_SRC}
               style={{ width: "100%", border: "none", minHeight: "1000px", display: "block" }}
               scrolling="no"

@@ -9,7 +9,7 @@ import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
 import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
-import { sendBookingConfirmation, sendBookingNotification, sendTourConfirmation, sendTourNotification } from "./server/email.js";
+import { sendBookingConfirmation, sendBookingNotification, sendTourConfirmation, sendTourNotification, sendInquiryNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -300,6 +300,42 @@ app.post("/api/book-tour", async (req, res) => {
     return res.status(502).json({
       error:
         "We couldn't schedule your tour right now. Please try again shortly or email eventsjvo@gmail.com.",
+    });
+  }
+});
+
+/**
+ * Contact-form inquiry — "Ask a Question". Emails the message to the JVO inbox
+ * with reply-to set to the guest.
+ */
+app.post("/api/inquiry", async (req, res) => {
+  const b = req.body || {};
+
+  const required = ["name", "email", "message"];
+  const missing = required.filter((k) => !b[k] || String(b[k]).trim() === "");
+  if (missing.length) {
+    return res.status(400).json({ error: `Missing required field(s): ${missing.join(", ")}` });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email))) {
+    return res.status(400).json({ error: "Please provide a valid email address." });
+  }
+
+  const inquiry = {
+    name: String(b.name).trim().slice(0, 200),
+    email: String(b.email).trim().slice(0, 200),
+    phone: b.phone ? String(b.phone).trim().slice(0, 50) : "",
+    message: String(b.message).trim().slice(0, 5000),
+  };
+
+  try {
+    const result = await sendInquiryNotification(inquiry);
+    if (!result.configured) throw new Error("email not configured");
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("[/api/inquiry] failed:", err);
+    return res.status(502).json({
+      error:
+        "We couldn't send your message right now. Please email eventsjvo@gmail.com directly.",
     });
   }
 });

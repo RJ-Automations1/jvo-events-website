@@ -487,6 +487,36 @@ export async function sendTourNotification(tour) {
 }
 
 /**
+ * Notify JVO that a guest left a question/inquiry through the contact form.
+ * Sent to MAIL_REPLY_TO with reply-to set to the guest, so answering is one
+ * click. @param {object} inquiry - { name, email, phone?, message }
+ */
+export async function sendInquiryNotification(inquiry) {
+  const t = getTransporter();
+  if (!t) return { configured: false, sent: false };
+  const lines = [
+    "New question/inquiry from the website contact form.",
+    "",
+    `Name:  ${inquiry.name || "—"}`,
+    `Email: ${inquiry.email || "—"}`,
+    `Phone: ${inquiry.phone || "—"}`,
+    "",
+    "Message:",
+    inquiry.message || "—",
+  ];
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to: MAIL_REPLY_TO,
+    replyTo: (inquiry.email || "").trim() || MAIL_REPLY_TO,
+    subject: `New inquiry: ${inquiry.name || "Guest"}`,
+    text: lines.join("\n"),
+  });
+
+  return { configured: true, sent: true };
+}
+
+/**
  * Notify JVO (the venue) that an event booking was submitted — a full copy of
  * the submission, sent to MAIL_REPLY_TO (the JVO contact inbox). Fires for every
  * booking, including JotForm webhook submissions.

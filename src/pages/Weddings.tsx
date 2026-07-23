@@ -191,11 +191,14 @@ function EstimateCalculator({
   setCount,
   chosen,
   total,
+  quoteServices,
 }: {
   counts: Record<number, number>;
   setCount: (i: number, n: number) => void;
   chosen: ChosenItem[];
   total: number;
+  /** Selected no-price design/planning services — quoted after we're notified. */
+  quoteServices: string[];
 }) {
   return (
     <div className="grid gap-8 lg:grid-cols-5">
@@ -358,7 +361,7 @@ function EstimateCalculator({
 
           <div className="accent-divider my-5" />
 
-          {chosen.length === 0 ? (
+          {chosen.length === 0 && quoteServices.length === 0 ? (
             <p className="text-white/40 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
               No enhancements added yet.
             </p>
@@ -375,6 +378,18 @@ function EstimateCalculator({
                     {e.perUnit ? ` × ${e.count}` : ""}
                   </span>
                   <span className="text-white/70 shrink-0">{fmtUSD(e.subtotal)}</span>
+                </li>
+              ))}
+              {quoteServices.map((label) => (
+                <li
+                  key={label}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                  style={{ fontFamily: "'Lato', sans-serif" }}
+                >
+                  <span className="text-white/70">{label}</span>
+                  <span className="text-[#c9a96a] shrink-0 text-[0.65rem] tracking-[0.2em] uppercase">
+                    Quote
+                  </span>
                 </li>
               ))}
             </ul>
@@ -416,21 +431,24 @@ function EstimateCalculator({
 function ReserveForm({
   chosen,
   total,
+  quoteServices,
 }: {
   chosen: ChosenItem[];
   total: number;
+  /** Selected no-price services — flagged in the inquiry so JVO can loop in the preferred vendor. */
+  quoteServices: string[];
 }) {
   const src = useMemo(() => {
     const p = new URLSearchParams();
     p.set(PREFILL_FIELDS.package, `Signature Wedding Package (${fmtUSD(BASE_PACKAGE)})`);
-    if (chosen.length)
-      p.set(
-        PREFILL_FIELDS.enhancements,
-        chosen.map((e) => (e.perUnit ? `${e.label} ×${e.count}` : e.label)).join(", "),
-      );
+    const items = [
+      ...chosen.map((e) => (e.perUnit ? `${e.label} ×${e.count}` : e.label)),
+      ...quoteServices.map((label) => `${label} (personalized quote requested)`),
+    ];
+    if (items.length) p.set(PREFILL_FIELDS.enhancements, items.join(", "));
     p.set(PREFILL_FIELDS.estimatedTotal, fmtUSD(total));
     return `https://form.jotform.com/${JOTFORM_ID}?${p.toString()}`;
-  }, [chosen, total]);
+  }, [chosen, total, quoteServices]);
 
   // JotForm's embed handler auto-resizes the iframe to match the form's height.
   useEffect(() => {
@@ -494,6 +512,15 @@ export default function Weddings() {
     })
     .filter((e) => e.count > 0);
   const total = BASE_PACKAGE + chosen.reduce((sum, e) => sum + e.subtotal, 0);
+
+  // Design/planning services are selectable at no charge — selecting one adds it
+  // to the inquiry so JVO can hand the request to the preferred vendor.
+  const [quoteSelected, setQuoteSelected] = useState<Record<string, boolean>>({});
+  const toggleQuote = (label: string) =>
+    setQuoteSelected((q) => ({ ...q, [label]: !q[label] }));
+  const quoteServices = customQuoteEnhancements
+    .map((c) => c.label)
+    .filter((label) => quoteSelected[label]);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh" }}>
@@ -624,7 +651,13 @@ export default function Weddings() {
           </div>
 
           <div className="reveal">
-            <EstimateCalculator counts={counts} setCount={setCount} chosen={chosen} total={total} />
+            <EstimateCalculator
+              counts={counts}
+              setCount={setCount}
+              chosen={chosen}
+              total={total}
+              quoteServices={quoteServices}
+            />
           </div>
 
           {/* Custom-quote enhancements */}
@@ -640,36 +673,56 @@ export default function Weddings() {
             </h3>
             <div className="accent-divider mt-4 mb-6" />
             <div className="grid gap-5 sm:grid-cols-2">
-              {customQuoteEnhancements.map((c) => (
-                <div
-                  key={c.label}
-                  className="flex flex-col overflow-hidden"
-                  style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)" }}
-                >
+              {customQuoteEnhancements.map((c) => {
+                const on = !!quoteSelected[c.label];
+                return (
                   <div
-                    aria-hidden="true"
+                    key={c.label}
+                    className="flex flex-col overflow-hidden transition-colors"
                     style={{
-                      height: 160,
-                      backgroundImage: `url(${c.image})`,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
+                      border: on ? "1px solid #c9a96a" : "1px solid rgba(255,255,255,0.1)",
+                      background: on ? "rgba(201,169,106,0.08)" : "rgba(255,255,255,0.02)",
                     }}
-                  />
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <h4 className="text-white text-base font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
-                        {c.label}
-                      </h4>
-                      <span className="text-[#c9a96a] text-[0.65rem] tracking-[0.2em] uppercase shrink-0 mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>
-                        Quote
-                      </span>
+                  >
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        height: 160,
+                        backgroundImage: `url(${c.image})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }}
+                    />
+                    <div className="flex flex-col grow p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <h4 className="text-white text-base font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>
+                          {c.label}
+                        </h4>
+                        <span className="text-[#c9a96a] text-[0.65rem] tracking-[0.2em] uppercase shrink-0 mt-1" style={{ fontFamily: "'Lato', sans-serif" }}>
+                          Quote
+                        </span>
+                      </div>
+                      <p className="text-white/55 text-xs leading-relaxed mt-2 grow" style={{ fontFamily: "'Lato', sans-serif" }}>
+                        {c.desc}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => toggleQuote(c.label)}
+                        aria-pressed={on}
+                        className="mt-4 py-2.5 text-sm font-semibold tracking-wide uppercase transition-colors"
+                        style={{
+                          border: on ? "1px solid #c9a96a" : "1px solid rgba(255,255,255,0.25)",
+                          background: on ? "#c9a96a" : "transparent",
+                          color: on ? "#0b0b0b" : "#fff",
+                          fontFamily: "'Lato', sans-serif",
+                        }}
+                      >
+                        {on ? "✓ Selected — we'll be in touch" : "Select — no charge"}
+                      </button>
                     </div>
-                    <p className="text-white/55 text-xs leading-relaxed mt-2" style={{ fontFamily: "'Lato', sans-serif" }}>
-                      {c.desc}
-                    </p>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -770,7 +823,7 @@ export default function Weddings() {
             <a href="#reserve" className="btn-white">
               Book Your Wedding
             </a>
-            <Link to="/contact" className="btn-outline">
+            <Link to="/contact#inquiry" className="btn-outline">
               Ask a Question
             </Link>
           </div>
@@ -789,17 +842,15 @@ export default function Weddings() {
             </h2>
             <div className="reveal accent-divider mx-auto mt-5" />
             <p className="reveal text-white/55 text-base sm:text-lg leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Tell us about your day and we'll be in touch. Your{" "}
-              <span style={{ color: "#c9a96a", fontWeight: 700 }}>{fmtUSD(total)}</span> estimate
-              {chosen.length > 0
-                ? ` and ${chosen.length} selected enhancement${chosen.length > 1 ? "s" : ""}`
-                : ""}{" "}
-              travel with your inquiry.
+              Every unforgettable celebration begins with a conversation. Tell us about your
+              special day, and we'll be in touch to create a personalized experience. Wedding
+              packages start at{" "}
+              <span style={{ color: "#c9a96a", fontWeight: 700 }}>$4,000</span>.
             </p>
           </div>
 
           <div className="reveal" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)", padding: "8px" }}>
-            <ReserveForm chosen={chosen} total={total} />
+            <ReserveForm chosen={chosen} total={total} quoteServices={quoteServices} />
           </div>
         </div>
       </section>

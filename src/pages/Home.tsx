@@ -43,7 +43,7 @@ const hostedEvents = [
     img: "/manus-storage/event-taste-testing.jpg",
   },
   {
-    title: "Quinceañeras",
+    title: "Quinceañeras / Sweet 16",
     body: "Celebrate her big day with a beautiful, photo-ready space to dance, dine, and make lasting memories.",
     img: "/manus-storage/event-quinceanera.jpg",
   },
@@ -161,7 +161,7 @@ export default function Home() {
               <Link to="/tour" className="btn-outline">
                 Book a Tour
               </Link>
-              <Link to="/gallery" className="btn-outline">
+              <Link to="/venue" className="btn-outline">
                 View Space
               </Link>
             </div>
