@@ -102,7 +102,7 @@ export default function Corporate() {
               <Link to="/book" className="btn-white">
                 Book Your Event
               </Link>
-              <Link to="/gallery" className="btn-outline">
+              <Link to="/venue" className="btn-outline">
                 View Space
               </Link>
             </div>
