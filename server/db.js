@@ -69,9 +69,42 @@ CREATE TABLE IF NOT EXISTS email_log (
   UNIQUE(event_id, kind)
 );
 
+CREATE TABLE IF NOT EXISTS staff (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  phone TEXT,
+  role TEXT NOT NULL DEFAULT 'event_staff',
+  active INTEGER NOT NULL DEFAULT 1,
+  portal_token TEXT UNIQUE,
+  created_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS availability (
+  id INTEGER PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES events(id),
+  staff_id INTEGER NOT NULL REFERENCES staff(id),
+  response TEXT NOT NULL,
+  note TEXT,
+  responded_at TEXT,
+  UNIQUE(event_id, staff_id)
+);
+
+CREATE TABLE IF NOT EXISTS assignments (
+  id INTEGER PRIMARY KEY,
+  event_id INTEGER NOT NULL REFERENCES events(id),
+  staff_id INTEGER NOT NULL REFERENCES staff(id),
+  role TEXT NOT NULL DEFAULT 'staff',
+  hours REAL,
+  assigned_at TEXT,
+  UNIQUE(event_id, staff_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);
 CREATE INDEX IF NOT EXISTS idx_events_event_date ON events(event_date);
 CREATE INDEX IF NOT EXISTS idx_history_event ON status_history(event_id);
+CREATE INDEX IF NOT EXISTS idx_availability_event ON availability(event_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_event ON assignments(event_id);
 `;
 
 let db = null;
@@ -85,7 +118,11 @@ function ensureColumns(database) {
   const have = new Set(
     database.prepare("PRAGMA table_info(events)").all().map((c) => c.name)
   );
-  const wanted = { details_changes: "TEXT" };
+  const wanted = {
+    details_changes: "TEXT",
+    // How many staff this event needs on the day (staff-scheduling phase).
+    staff_needed: "INTEGER DEFAULT 2",
+  };
   for (const [col, type] of Object.entries(wanted)) {
     if (!have.has(col)) {
       database.exec(`ALTER TABLE events ADD COLUMN ${col} ${type}`);
