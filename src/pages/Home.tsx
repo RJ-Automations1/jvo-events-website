@@ -35,7 +35,7 @@ const hostedEvents = [
   {
     title: "Anniversary Celebrations",
     body: "Mark the milestone in style with an elegant, intimate setting made for the people who matter most.",
-    img: "/manus-storage/outdoor-decorated.jpg",
+    img: "/manus-storage/anniversary-deck.jpg",
   },
   {
     title: "Taste Testings",
@@ -68,12 +68,12 @@ const highlights = [
   {
     title: "Weddings & Receptions",
     body: "A refined backdrop for your ceremony and celebration, with room to make the day entirely your own.",
-    img: "/manus-storage/wedding-couple.jpg",
+    img: "/manus-storage/wedding-ceremony.jpg",
   },
   {
     title: "Game Nights & Socials",
     body: "Bring everyone together for game nights, mixers, and good food in a space built for fun.",
-    img: "/manus-storage/people-jenga.jpg",
+    img: "/manus-storage/game-night-uno.jpg",
   },
   {
     title: "Birthday Parties",
