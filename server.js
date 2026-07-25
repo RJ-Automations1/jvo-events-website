@@ -11,6 +11,11 @@ import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/g
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
 import { sendBookingConfirmation, sendBookingNotification, sendTourConfirmation, sendTourNotification, sendInquiryNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
+import { getDb } from "./server/db.js";
+import { createEventRecord } from "./server/pipeline.js";
+import { adminRouter } from "./server/admin.js";
+import { verifyRouter } from "./server/verify.js";
+import { runPipelineSweep } from "./server/pipelineScheduler.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -378,6 +383,25 @@ async function processBooking(rawBooking) {
     result.errors.push(`notify: ${err.message}`);
   }
 
+  // Record the booking in the SQLite pipeline (status awaiting_deposit) so it
+  // shows up on the /admin dashboard and gets the timeline emails. Idempotent
+  // on the JotForm submission id, and independent of the calendar/Deskworks
+  // outcome — a valid payload always gets a record. Never fatal: without a DB
+  // the site still books via calendar + email exactly as before.
+  try {
+    const db = getDb();
+    if (db) {
+      const { event, created } = createEventRecord(db, {
+        ...booking,
+        calendarEventId: result.calendar?.id || null,
+      });
+      result.pipeline = { publicId: event.public_id, created };
+    }
+  } catch (err) {
+    console.error("[processBooking] pipeline record failed:", err.message);
+    result.errors.push(`pipeline: ${err.message}`);
+  }
+
   // Only send the guest confirmation once the booking actually landed somewhere
   // (Deskworks or the calendar). Best-effort — a mail failure never fails a booking.
   if (result.deskworks || result.calendar) {
@@ -544,6 +568,7 @@ app.post("/api/jotform-hook", upload.none(), async (req, res) => {
       eventDate: booking.eventDate,
       deskworks: result.deskworks,
       calendar: result.calendar,
+      pipeline: result.pipeline,
       errors: result.errors,
     });
     return res.status(200).json({ ok: true });
@@ -576,8 +601,29 @@ app.post("/api/cron/payment-reminders", async (req, res) => {
   }
 });
 
+// Manual trigger for the pipeline timeline sweep (same token protection).
+// POST /api/cron/pipeline?token=...&dryRun=1
+app.post("/api/cron/pipeline", async (req, res) => {
+  if (CRON_SECRET) {
+    const token = req.query.token || req.headers["x-cron-token"];
+    if (token !== CRON_SECRET) {
+      console.warn("[cron] pipeline rejected: bad/missing token");
+      return res.status(401).json({ ok: false });
+    }
+  }
+  try {
+    const dryRun = req.query.dryRun === "1" || req.query.dryRun === "true";
+    const summary = await runPipelineSweep({ dryRun });
+    return res.status(200).json({ ok: true, summary });
+  } catch (err) {
+    console.error("[cron] pipeline sweep failed:", err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Daily in-process schedule. Default 9:00am Eastern; override with
-// PAYMENT_REMINDER_CRON (5-field cron) / EVENT_TIMEZONE.
+// PAYMENT_REMINDER_CRON (5-field cron) / EVENT_TIMEZONE. Runs both the legacy
+// 30-day payment sweep and the pipeline timeline sweep (45/30/15/14/3-day).
 const REMINDER_CRON = process.env.PAYMENT_REMINDER_CRON || "0 9 * * *";
 const REMINDER_TZ = process.env.EVENT_TIMEZONE || "America/New_York";
 if (cron.validate(REMINDER_CRON)) {
@@ -587,13 +633,23 @@ if (cron.validate(REMINDER_CRON)) {
       runPaymentReminderSweep().catch((err) =>
         console.error("[cron] scheduled payment-reminders failed:", err.message)
       );
+      runPipelineSweep().catch((err) =>
+        console.error("[cron] scheduled pipeline sweep failed:", err.message)
+      );
     },
     { timezone: REMINDER_TZ }
   );
-  console.log(`[cron] payment reminders scheduled "${REMINDER_CRON}" (${REMINDER_TZ})`);
+  console.log(`[cron] payment reminders + pipeline sweep scheduled "${REMINDER_CRON}" (${REMINDER_TZ})`);
 } else {
   console.warn(`[cron] invalid PAYMENT_REMINDER_CRON "${REMINDER_CRON}" — daily sweep disabled`);
 }
+
+// --- Booking pipeline: staff admin dashboard + guest details verification ---
+// /admin and /api/admin/* sit behind HTTP Basic Auth (ADMIN_USER/ADMIN_PASSWORD;
+// 503 until those are set). /verify/:token is the guest-facing confirmation
+// page linked from the 15-day email. Both live OUTSIDE the Vite SPA.
+app.use(adminRouter);
+app.use(verifyRouter);
 
 // --- Serve the built front-end (production) ---
 const distDir = path.join(__dirname, "dist");
