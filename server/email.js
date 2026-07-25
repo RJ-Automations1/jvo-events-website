@@ -940,3 +940,192 @@ export async function sendDetailsChangedNotification(ev, changes) {
   });
   return { configured: true, sent: true };
 }
+
+// ---------------------------------------------------------------------------
+// Staff-scheduling emails (availability requests, assignment confirmations,
+// shortage alerts) — see server/staffing.js + pipelineScheduler.js
+// ---------------------------------------------------------------------------
+
+/** One-line human summary of an event for staff-facing emails. */
+function eventLineForStaff(ev) {
+  const bits = [
+    prettyDate(ev.event_date),
+    ev.start_time && ev.end_time
+      ? `${prettyTime(ev.start_time)} – ${prettyTime(ev.end_time)}`
+      : null,
+    ev.event_type || null,
+    ev.guest_count != null ? `${ev.guest_count} guests` : null,
+  ].filter(Boolean);
+  return bits.join(" · ");
+}
+
+/**
+ * Ask a staff member whether they can work an upcoming event, linking their
+ * personal portal page where they answer (full / setup only / breakdown only /
+ * partial / can't).
+ * @param {object} staff - a staff DB row ({ name, email })
+ * @param {object} ev - the events DB row
+ * @param {string} portalUrl - absolute link to /staff/<portal_token>
+ */
+export async function sendStaffAvailabilityRequest(staff, ev, portalUrl) {
+  const t = getTransporter();
+  if (!t) {
+    console.warn("[email] SMTP not configured — skipping staff availability request.");
+    return { configured: false, sent: false };
+  }
+  const to = (staff.email || "").trim();
+  if (!to) return { configured: true, sent: false, skipped: "no recipient" };
+  const name = firstNameOf(staff.name);
+  const dateStr = prettyDate(ev.event_date);
+  const summary = eventLineForStaff(ev);
+
+  const text = `Hi ${name},
+
+We have an event coming up at JVO Events and we're building the team for the day:
+
+${summary}
+
+Can you work it? Please take 30 seconds to answer on your staff page — full day, setup only, breakdown only, partially available, or can't make it:
+
+${portalUrl}
+
+That link is yours alone (no login needed) and always shows every upcoming event that still needs staff, so feel free to bookmark it.
+
+Thank you!
+
+— JVO Events
+Jonesboro, Georgia
+jvoevents.com`;
+
+  const inner = `
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(name)},</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
+  We have an event coming up at <strong>JVO Events</strong> and we're building the
+  team for the day:
+</p>
+${dateCalloutHtml(escapeHtml(summary))}
+<p style="font-size:16px;line-height:1.6;margin:0 0 22px 0;">
+  Can you work it? Please take 30 seconds to answer on your staff page — full day,
+  setup only, breakdown only, partially available, or can't make it.
+</p>
+<p style="margin:0 0 26px 0;"><a href="${escapeHtml(portalUrl)}" style="display:inline-block;background:#0b0b0b;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:15px;padding:13px 26px;border:1px solid #c9a96a;">Set My Availability</a></p>
+<p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;color:#555;">
+  That link is yours alone (no login needed) and always shows every upcoming event
+  that still needs staff, so feel free to bookmark it.
+</p>`;
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to,
+    replyTo: MAIL_REPLY_TO,
+    subject: `Can you work ${dateStr}? — JVO Events staffing`,
+    text,
+    html: buildShellHtml("Staffing Request", inner),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * Confirm to a staff member that they're on the team for an event, with the
+ * event summary and their role + expected hours.
+ * @param {object} staff - a staff DB row
+ * @param {object} ev - the events DB row
+ * @param {string} role - captain | staff | setup | cleanup
+ * @param {number|null} hours - expected hours for the day
+ */
+export async function sendStaffAssignmentConfirmation(staff, ev, role, hours) {
+  const t = getTransporter();
+  if (!t) {
+    console.warn("[email] SMTP not configured — skipping assignment confirmation.");
+    return { configured: false, sent: false };
+  }
+  const to = (staff.email || "").trim();
+  if (!to) return { configured: true, sent: false, skipped: "no recipient" };
+  const name = firstNameOf(staff.name);
+  const dateStr = prettyDate(ev.event_date);
+  const summary = eventLineForStaff(ev);
+  const roleLabel = String(role || "staff").replace(/_/g, " ");
+  const hoursLabel = Number.isFinite(hours) ? `${hours}` : null;
+
+  const text = `Hi ${name},
+
+You're confirmed on the team for an upcoming JVO Events event:
+
+${summary}
+
+Your role:  ${roleLabel}${hoursLabel ? `\nExpected hours: ${hoursLabel}` : ""}
+
+Where: 127 Jonesboro Rd, Suite 100, Jonesboro, GA 30236
+
+If anything changes and you can no longer make it, reply to this email or call (678) 519-4723 as soon as you can so we can cover the shift.
+
+Thank you — see you there!
+
+— JVO Events
+Jonesboro, Georgia
+jvoevents.com`;
+
+  const inner = `
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(name)},</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
+  You're <strong>confirmed on the team</strong> for an upcoming JVO Events event:
+</p>
+${dateCalloutHtml(escapeHtml(summary))}
+<p style="font-size:16px;line-height:1.6;margin:0 0 8px 0;"><strong>Your role:</strong> ${escapeHtml(roleLabel)}${hoursLabel ? ` &nbsp;·&nbsp; <strong>Expected hours:</strong> ${escapeHtml(hoursLabel)}` : ""}</p>
+<p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;">127 Jonesboro Rd, Suite 100, Jonesboro, GA 30236</p>
+<p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;color:#555;">
+  If anything changes and you can no longer make it, reply to this email or call
+  <strong>(678) 519-4723</strong> as soon as you can so we can cover the shift.
+</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 4px 0;">Thank you — see you there!</p>`;
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to,
+    replyTo: MAIL_REPLY_TO,
+    subject: `You're confirmed — ${dateStr} at JVO Events (${roleLabel})`,
+    text,
+    html: buildShellHtml("Shift Confirmed", inner),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * STAFFING ALERT to the venue inbox (MAIL_REPLY_TO): an event inside the alert
+ * window still has fewer confirmed assignments than it needs.
+ * @param {object} ev - the events DB row
+ * @param {number} needed - staff_needed
+ * @param {number} confirmed - confirmed assignment count
+ * @param {number} daysOut - whole days until the event
+ */
+export async function sendStaffingAlert(ev, needed, confirmed, daysOut) {
+  const t = getTransporter();
+  if (!t) return { configured: false, sent: false };
+  const dateStr = prettyDate(ev.event_date);
+  const lines = [
+    `STAFFING ALERT — ${ev.public_id || `event #${ev.id}`} is ${daysOut} day${daysOut === 1 ? "" : "s"} out and still short-staffed.`,
+    "",
+    `Event:     ${ev.name || "—"}${ev.event_type ? ` (${ev.event_type})` : ""}`,
+    `Date:      ${dateStr}`,
+    ev.start_time || ev.end_time
+      ? `Time:      ${ev.start_time || "?"} – ${ev.end_time || "?"}`
+      : null,
+    ev.guest_count != null ? `Guests:    ${ev.guest_count}` : null,
+    `Needed:    ${needed}`,
+    `Confirmed: ${confirmed}`,
+    "",
+    "Staff who haven't answered their availability request can still respond on",
+    "their personal portal link (the /staff/<token> page from the request email).",
+    "Assign confirmed staff on the admin dashboard (/admin) — once assignments",
+    "reach the needed count you can mark the event Ready.",
+  ].filter((l) => l !== null);
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to: MAIL_REPLY_TO,
+    replyTo: MAIL_REPLY_TO,
+    subject: `STAFFING ALERT: ${confirmed}/${needed} staffed — ${dateStr} (${daysOut}d out)`,
+    text: lines.join("\n"),
+  });
+  return { configured: true, sent: true };
+}

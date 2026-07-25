@@ -11,6 +11,13 @@
  *   14 days out  final-payment-due notice (+ auto booked → awaiting_final_payment)
  *    3 days out  final event reminder to the guest + prep summary to staff
  *
+ * Staff scheduling (Step 7 of the workflow) rides the same sweep:
+ *   ≤14 days out  understaffed events email every active staff member their
+ *                 personal portal link (/staff/:portal_token) — one email per
+ *                 staff per event, deduped as kind staffing_request_<staffId>
+ *   ≤7 / ≤3 days  still understaffed → STAFFING ALERT to the venue inbox
+ *                 (kinds staffing_alert_7 / staffing_alert_3)
+ *
  * Each send is recorded in email_log — UNIQUE(event_id, kind) means every kind
  * goes out at most once per event, so a missed day is caught on the next sweep
  * (each kind fires inside a window, not only on the exact day).
@@ -23,7 +30,8 @@
  */
 
 import { getDb, nowIso } from "./db.js";
-import { ACTIVE_STATUSES, transition } from "./pipeline.js";
+import { ACTIVE_STATUSES, STAFFING_STATUSES, transition } from "./pipeline.js";
+import { activeStaff, assignmentCount, staffNeeded } from "./staffing.js";
 import {
   sendCourtesyReminder,
   sendPaymentReminder,
@@ -31,6 +39,8 @@ import {
   sendFinalPaymentDue,
   sendEventFinalReminder,
   sendEventSummaryToStaff,
+  sendStaffAvailabilityRequest,
+  sendStaffingAlert,
 } from "./email.js";
 
 const ENABLED = String(process.env.PIPELINE_EMAILS_ENABLED || "false") === "true";
@@ -112,7 +122,17 @@ const KINDS = [
 export async function runPipelineSweep(opts = {}) {
   const dryRun = opts.dryRun === true || !ENABLED;
   const today = todayYmd();
-  const summary = { today, enabled: ENABLED, dryRun, checked: 0, sent: 0, transitioned: 0, errors: [] };
+  const summary = {
+    today,
+    enabled: ENABLED,
+    dryRun,
+    checked: 0,
+    sent: 0,
+    transitioned: 0,
+    staffingRequests: 0,
+    staffingAlerts: 0,
+    errors: [],
+  };
 
   const db = getDb();
   if (!db) {
@@ -182,6 +202,70 @@ export async function runPipelineSweep(opts = {}) {
       } catch (err) {
         console.error(`[pipeline] send failed ${label}:`, err.message);
         summary.errors.push(`${k.kind}(${ev.public_id}): ${err.message}`);
+      }
+    }
+
+    // --- Staff scheduling (Step 7): availability requests + shortage alerts --
+    if (!STAFFING_STATUSES.includes(ev.status)) continue;
+    const needed = staffNeeded(ev);
+    const confirmed = assignmentCount(db, ev.id);
+    if (confirmed >= needed) continue; // fully staffed — nothing to chase
+
+    // ≤14 days out: ask every active staff member for availability, once per
+    // staff per event (kind staffing_request_<staffId>).
+    if (daysOut <= 14) {
+      for (const s of activeStaff(db)) {
+        const kind = `staffing_request_${s.id}`;
+        if (alreadySent.get(ev.id, kind)) continue;
+        if (!s.email || !s.portal_token) continue;
+        const label = `${kind} → ${s.email} (${ev.public_id}, ${ev.event_date}, ${daysOut}d out, ${confirmed}/${needed} staffed)`;
+        if (dryRun) {
+          summary.staffingRequests++;
+          console.log(`[pipeline] DRY RUN — would send ${label}`);
+          continue;
+        }
+        try {
+          const result = await sendStaffAvailabilityRequest(s, ev, `${SITE_URL}/staff/${s.portal_token}`);
+          if (result?.configured === false) {
+            console.warn(`[pipeline] SMTP not configured — skipped ${label}`);
+            continue; // not logged, so it sends once SMTP exists
+          }
+          logSend.run(ev.id, kind, s.email, nowIso());
+          summary.staffingRequests++;
+          console.log(`[pipeline] sent ${label}`);
+        } catch (err) {
+          console.error(`[pipeline] send failed ${label}:`, err.message);
+          summary.errors.push(`${kind}(${ev.public_id}): ${err.message}`);
+        }
+      }
+    }
+
+    // ≤7 / ≤3 days out and still short → STAFFING ALERT to the venue inbox.
+    // Windowed like KINDS so a late booking only triggers the tighter alert.
+    for (const alert of [
+      { kind: "staffing_alert_7", min: 4, max: 7 },
+      { kind: "staffing_alert_3", min: 0, max: 3 },
+    ]) {
+      if (daysOut < alert.min || daysOut > alert.max) continue;
+      if (alreadySent.get(ev.id, alert.kind)) continue;
+      const label = `${alert.kind} → staff (${ev.public_id}, ${ev.event_date}, ${daysOut}d out, ${confirmed}/${needed} staffed)`;
+      if (dryRun) {
+        summary.staffingAlerts++;
+        console.log(`[pipeline] DRY RUN — would send ${label}`);
+        continue;
+      }
+      try {
+        const result = await sendStaffingAlert(ev, needed, confirmed, daysOut);
+        if (result?.configured === false) {
+          console.warn(`[pipeline] SMTP not configured — skipped ${label}`);
+          continue;
+        }
+        logSend.run(ev.id, alert.kind, "staff", nowIso());
+        summary.staffingAlerts++;
+        console.log(`[pipeline] sent ${label}`);
+      } catch (err) {
+        console.error(`[pipeline] send failed ${label}:`, err.message);
+        summary.errors.push(`${alert.kind}(${ev.public_id}): ${err.message}`);
       }
     }
   }

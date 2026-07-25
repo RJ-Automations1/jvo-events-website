@@ -5,7 +5,10 @@
  * automated booking workflow doc):
  *
  *   awaiting_deposit → booked → awaiting_final_payment → paid_in_full
- *     → ready → complete → archived
+ *     → staff_scheduling → ready → complete → archived
+ *
+ * (staff_scheduling is optional — an event that's already fully staffed can go
+ * straight from paid_in_full to ready, matching the pre-scheduler flow)
  *
  * with exception statuses:
  *   needs_review          — something needs a human (e.g. guest changed their
@@ -25,6 +28,7 @@ export const STATUSES = [
   "booked",
   "awaiting_final_payment",
   "paid_in_full",
+  "staff_scheduling",
   "ready",
   "complete",
   "archived",
@@ -39,7 +43,20 @@ export const ACTIVE_STATUSES = [
   "booked",
   "awaiting_final_payment",
   "paid_in_full",
+  "staff_scheduling",
   "ready",
+];
+
+/**
+ * Statuses where the staff scheduler cares about the event: booked (or later)
+ * but not yet marked ready — availability requests and shortage alerts only
+ * make sense in this window.
+ */
+export const STAFFING_STATUSES = [
+  "booked",
+  "awaiting_final_payment",
+  "paid_in_full",
+  "staff_scheduling",
 ];
 
 const CANCELLED = ["cancelled_customer", "cancelled_nonpayment"];
@@ -54,7 +71,8 @@ export const ALLOWED_TRANSITIONS = {
   awaiting_deposit: ["booked", "needs_review", ...CANCELLED],
   booked: ["awaiting_final_payment", "paid_in_full", "needs_review", ...CANCELLED],
   awaiting_final_payment: ["paid_in_full", "needs_review", ...CANCELLED],
-  paid_in_full: ["ready", "needs_review", ...CANCELLED],
+  paid_in_full: ["staff_scheduling", "ready", "needs_review", ...CANCELLED],
+  staff_scheduling: ["ready", "needs_review", ...CANCELLED],
   ready: ["complete", "needs_review", ...CANCELLED],
   complete: ["archived", "needs_review"],
   archived: [],
