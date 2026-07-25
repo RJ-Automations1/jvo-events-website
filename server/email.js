@@ -554,3 +554,389 @@ export async function sendBookingNotification(booking) {
 
   return { configured: true, sent: true };
 }
+
+// ---------------------------------------------------------------------------
+// Pipeline timeline emails (45/30/15/14/3 days out) — see pipelineScheduler.js
+// ---------------------------------------------------------------------------
+
+/**
+ * Shared branded shell for pipeline emails: the dark JVO Events header with a
+ * gold kicker label, an inner content block, and the standard footer — so every
+ * timeline email matches the look of the confirmation/reminder emails above.
+ */
+function buildShellHtml(label, innerHtml) {
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f2ee;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2ee;padding:28px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #e7e2d8;">
+            <tr>
+              <td style="background:#0b0b0b;padding:30px 36px;text-align:center;">
+                <div style="font-family:Georgia,'Times New Roman',serif;color:#ffffff;font-size:24px;letter-spacing:1px;">JVO Events</div>
+                <div style="font-family:Arial,Helvetica,sans-serif;color:#c9a96a;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:6px;">${escapeHtml(label)}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:36px 36px 8px 36px;font-family:Arial,Helvetica,sans-serif;color:#2b2b2b;">
+                ${innerHtml}
+                <p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;color:#555;">
+                  Questions? Just reply to this email or reach us at
+                  <a href="mailto:${escapeHtml(MAIL_REPLY_TO)}" style="color:#9a7b35;">${escapeHtml(MAIL_REPLY_TO)}</a>.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 36px 32px 36px;font-family:Georgia,'Times New Roman',serif;color:#0b0b0b;">
+                <div style="border-top:1px solid #e7e2d8;padding-top:18px;font-size:15px;">
+                  — JVO Events<br>
+                  <span style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#777;">jvoevents.com</span>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+/** The gold-bordered date callout used across the branded emails. */
+function dateCalloutHtml(textInside) {
+  return `<p style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:#0b0b0b;background:#f7f4ee;border-left:3px solid #c9a96a;padding:14px 18px;margin:0 0 22px 0;">${textInside}</p>`;
+}
+
+/** First name of a guest, falling back to "there". */
+function firstNameOf(name) {
+  return ((name || "there").trim() || "there").split(/\s+/)[0];
+}
+
+/**
+ * 45-day courtesy reminder — a warm "your event is coming up" check-in.
+ * @param {object} ev - { name, email, event_date, package? }
+ */
+export async function sendCourtesyReminder(ev) {
+  const t = getTransporter();
+  if (!t) {
+    console.warn("[email] SMTP not configured — skipping courtesy reminder.");
+    return { configured: false, sent: false };
+  }
+  const to = (ev.email || "").trim();
+  if (!to) return { configured: true, sent: false, skipped: "no recipient" };
+  const name = firstNameOf(ev.name);
+  const dateStr = prettyDate(ev.event_date);
+
+  const text = `Hi ${name},
+
+Just a friendly note from JVO Events — your event on ${dateStr} is about 45 days away, and we're already looking forward to hosting you.
+
+A few reminders so everything stays effortless:
+- Your $150 security deposit holds your date.
+- Venue rental is $800 for a half day (5 hours) or $1,300 for a full day (10 hours).
+- Your full balance is due no later than 14 days before your event.
+
+Closer to your date we'll send you a quick link to confirm your event details (times, guest count, and any special requests), so you don't have to remember a thing.
+
+Questions? Just reply to this email or reach us at ${MAIL_REPLY_TO}.
+
+— JVO Events
+Jonesboro, Georgia
+jvoevents.com`;
+
+  const inner = `
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(name)},</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
+  Just a friendly note from <strong>JVO Events</strong> — your event is about
+  <strong>45 days away</strong>, and we're already looking forward to hosting you:
+</p>
+${dateCalloutHtml(escapeHtml(dateStr))}
+<p style="font-size:16px;line-height:1.6;margin:0 0 12px 0;">A few reminders so everything stays effortless:</p>
+<ul style="font-size:15px;line-height:1.7;margin:0 0 22px 0;padding-left:20px;color:#2b2b2b;">
+  <li>Your <strong>$150 security deposit</strong> holds your date.</li>
+  <li>Venue rental is <strong>$800</strong> for a half day (5 hours) or <strong>$1,300</strong> for a full day (10 hours).</li>
+  <li>Your full balance is due <strong>no later than 14 days</strong> before your event.</li>
+</ul>
+<p style="font-size:16px;line-height:1.6;margin:0 0 22px 0;">
+  Closer to your date we'll send a quick link to confirm your event details — times,
+  guest count, and any special requests — so you don't have to remember a thing.
+</p>`;
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to,
+    replyTo: MAIL_REPLY_TO,
+    subject: `45 days to go — your JVO Events booking on ${dateStr}`,
+    text,
+    html: buildShellHtml("45-Day Check-In", inner),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * 15-day details-verification request — asks the guest to confirm (or correct)
+ * their event details via the tokenized /verify link.
+ * @param {object} ev - { name, email, event_date }
+ * @param {string} verifyUrl - absolute link to the verification page
+ */
+export async function sendDetailsVerificationRequest(ev, verifyUrl) {
+  const t = getTransporter();
+  if (!t) {
+    console.warn("[email] SMTP not configured — skipping verification request.");
+    return { configured: false, sent: false };
+  }
+  const to = (ev.email || "").trim();
+  if (!to) return { configured: true, sent: false, skipped: "no recipient" };
+  const name = firstNameOf(ev.name);
+  const dateStr = prettyDate(ev.event_date);
+
+  const text = `Hi ${name},
+
+Your event at JVO Events on ${dateStr} is just about two weeks away — time to make sure every detail is exactly right.
+
+Please take one minute to confirm your event details (times, guest count, vehicles, vendors, and any special requests):
+
+${verifyUrl}
+
+If everything looks good, one click confirms it. If anything has changed, you can tell us right on that page and our team will follow up.
+
+Questions? Just reply to this email or reach us at ${MAIL_REPLY_TO}.
+
+— JVO Events
+Jonesboro, Georgia
+jvoevents.com`;
+
+  const inner = `
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(name)},</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
+  Your event at <strong>JVO Events</strong> is just about two weeks away — time to
+  make sure every detail is exactly right:
+</p>
+${dateCalloutHtml(escapeHtml(dateStr))}
+<p style="font-size:16px;line-height:1.6;margin:0 0 22px 0;">
+  Please take one minute to confirm your event details — times, guest count,
+  vehicles, vendors, and any special requests.
+</p>
+<p style="margin:0 0 26px 0;"><a href="${escapeHtml(verifyUrl)}" style="display:inline-block;background:#0b0b0b;color:#ffffff;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:15px;padding:13px 26px;border:1px solid #c9a96a;">Confirm My Event Details</a></p>
+<p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;color:#555;">
+  If everything looks good, one click confirms it. If anything has changed, you can
+  tell us right on that page and our team will follow up.
+</p>`;
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to,
+    replyTo: MAIL_REPLY_TO,
+    subject: `Please confirm your event details — ${dateStr} at JVO Events`,
+    text,
+    html: buildShellHtml("Confirm Your Details", inner),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * 14-day final-payment-due notice — the hard cutoff from the booking terms.
+ * @param {object} ev - { name, email, event_date }
+ */
+export async function sendFinalPaymentDue(ev) {
+  const t = getTransporter();
+  if (!t) {
+    console.warn("[email] SMTP not configured — skipping final-payment notice.");
+    return { configured: false, sent: false };
+  }
+  const to = (ev.email || "").trim();
+  if (!to) return { configured: true, sent: false, skipped: "no recipient" };
+  const name = firstNameOf(ev.name);
+  const dateStr = prettyDate(ev.event_date);
+
+  const text = `Hi ${name},
+
+Your event at JVO Events on ${dateStr} is 14 days away — which means your full balance is now due.
+
+Per your booking agreement, full payment is required no later than 14 days before your event. If the full balance is not received, your booking will be canceled and your $150 security deposit will not be refunded.
+
+If you've already sent your payment, thank you — you can disregard this notice. If you're not sure of your remaining balance, just reply to this email and we'll confirm it right away.
+
+— JVO Events
+Jonesboro, Georgia
+jvoevents.com`;
+
+  const inner = `
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(name)},</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
+  Your event at <strong>JVO Events</strong> is <strong>14 days away</strong> — which
+  means your full balance is now due:
+</p>
+${dateCalloutHtml(escapeHtml(dateStr))}
+<div style="border:1px solid #e7d9bf;background:#fbf7ee;padding:18px 20px;margin:0 0 22px 0;">
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#9a7b35;font-weight:bold;margin-bottom:8px;">Final Payment Due</div>
+  <p style="font-size:15px;line-height:1.6;margin:0;color:#2b2b2b;">
+    Per your booking agreement, full payment is required <strong>no later than 14 days
+    before your event</strong>. If the full balance is not received, your booking will be
+    canceled and your <strong>$150 security deposit will not be refunded</strong>.
+  </p>
+</div>
+<p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;color:#555;">
+  If you've already sent your payment, thank you — you can disregard this notice.
+  Not sure of your remaining balance? Just reply and we'll confirm it right away.
+</p>`;
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to,
+    replyTo: MAIL_REPLY_TO,
+    subject: `Final payment due — your JVO Events booking on ${dateStr}`,
+    text,
+    html: buildShellHtml("Final Payment Due", inner),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * 3-day final event reminder to the guest — arrival details, venue address, and
+ * the house-rules highlights.
+ * @param {object} ev - { name, email, event_date, start_time?, end_time? }
+ */
+export async function sendEventFinalReminder(ev) {
+  const t = getTransporter();
+  if (!t) {
+    console.warn("[email] SMTP not configured — skipping final event reminder.");
+    return { configured: false, sent: false };
+  }
+  const to = (ev.email || "").trim();
+  if (!to) return { configured: true, sent: false, skipped: "no recipient" };
+  const name = firstNameOf(ev.name);
+  const dateStr = prettyDate(ev.event_date);
+  const timeStr =
+    ev.start_time && ev.end_time
+      ? `${prettyTime(ev.start_time)} – ${prettyTime(ev.end_time)}`
+      : "";
+
+  const text = `Hi ${name},
+
+It's almost time — your event at JVO Events is this ${dateStr}${timeStr ? ` (${timeStr})` : ""}! Here's everything you need for a smooth day:
+
+WHERE TO FIND US
+127 Jonesboro Rd, Suite 100, Jonesboro, GA 30236
+
+A FEW HOUSE REMINDERS
+- Parking is limited to 45 vehicles — let your guests know to carpool where they can.
+- No confetti, please, and only pre-approved vendors on site.
+- Please return the space the way you found it at the end of your rental window.
+
+Our team will have the venue prepped and ready when you arrive. If anything comes up before then, just reply to this email or call (678) 519-4723.
+
+We can't wait to celebrate with you!
+
+— JVO Events
+Jonesboro, Georgia
+jvoevents.com`;
+
+  const inner = `
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(name)},</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
+  It's almost time — your event at <strong>JVO Events</strong> is this:
+</p>
+${dateCalloutHtml(escapeHtml(dateStr) + (timeStr ? ` &nbsp;·&nbsp; ${escapeHtml(timeStr)}` : ""))}
+<p style="font-size:16px;line-height:1.6;margin:0 0 8px 0;"><strong>Where to find us</strong></p>
+<p style="font-size:15px;line-height:1.6;margin:0 0 22px 0;">127 Jonesboro Rd, Suite 100, Jonesboro, GA 30236</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 8px 0;"><strong>A few house reminders</strong></p>
+<ul style="font-size:15px;line-height:1.7;margin:0 0 22px 0;padding-left:20px;color:#2b2b2b;">
+  <li>Parking is limited to <strong>45 vehicles</strong> — encourage guests to carpool.</li>
+  <li>No confetti, please, and only pre-approved vendors on site.</li>
+  <li>Please return the space the way you found it at the end of your rental window.</li>
+</ul>
+<p style="font-size:16px;line-height:1.6;margin:0 0 22px 0;">
+  Our team will have the venue prepped and ready when you arrive. If anything comes
+  up before then, just reply to this email or call <strong>(678) 519-4723</strong>.
+</p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 4px 0;">We can't wait to celebrate with you!</p>`;
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to,
+    replyTo: MAIL_REPLY_TO,
+    subject: `See you soon — your JVO Events event on ${dateStr}`,
+    text,
+    html: buildShellHtml("Your Event Is Almost Here", inner),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * 3-day event summary to staff (MAIL_REPLY_TO) — everything the team needs to
+ * prep the venue, in one plain-text email.
+ * @param {object} ev - a full events DB row
+ */
+export async function sendEventSummaryToStaff(ev) {
+  const t = getTransporter();
+  if (!t) return { configured: false, sent: false };
+  const dateStr = prettyDate(ev.event_date);
+  const lines = [
+    `Event prep summary — ${ev.public_id || `event #${ev.id}`} is 3 days out.`,
+    "",
+    `Guest:    ${ev.name || "—"}`,
+    `Email:    ${ev.email || "—"}`,
+    `Phone:    ${ev.phone || "—"}`,
+    `Date:     ${dateStr}`,
+    ev.start_time || ev.end_time
+      ? `Time:     ${ev.start_time || "?"} – ${ev.end_time || "?"}`
+      : null,
+    ev.event_type ? `Type:     ${ev.event_type}` : null,
+    ev.package ? `Package:  ${ev.package}` : null,
+    ev.guest_count != null ? `Guests:   ${ev.guest_count}` : null,
+    ev.vehicle_count != null ? `Vehicles: ${ev.vehicle_count}` : null,
+    ev.vendors ? `Vendors:  ${ev.vendors}` : null,
+    ev.addons ? `Add-ons:  ${ev.addons}` : null,
+    `Status:   ${ev.status}`,
+    `Deposit paid:  ${ev.deposit_paid_at || "NOT RECORDED"}`,
+    `Final payment: ${ev.final_paid_at || "NOT RECORDED"}`,
+    `Details verified: ${ev.details_verified_at || "not confirmed by guest"}`,
+    ev.notes ? `\nNotes:\n${ev.notes}` : null,
+  ].filter((l) => l !== null);
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to: MAIL_REPLY_TO,
+    replyTo: (ev.email || "").trim() || MAIL_REPLY_TO,
+    subject: `Prep: ${ev.name || "Guest"} — ${dateStr} (3 days out)`,
+    text: lines.join("\n"),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * Notify staff that a guest submitted CHANGES on the details-verification page
+ * (the event has been moved to needs_review).
+ * @param {object} ev - the events DB row
+ * @param {object} changes - { field: { from, to }, ... }
+ */
+export async function sendDetailsChangedNotification(ev, changes) {
+  const t = getTransporter();
+  if (!t) return { configured: false, sent: false };
+  const dateStr = prettyDate(ev.event_date);
+  const changeLines = Object.entries(changes || {}).map(
+    ([field, c]) => `  ${field}: "${c.from ?? ""}" → "${c.to ?? ""}"`
+  );
+  const lines = [
+    `${ev.name || "A guest"} submitted CHANGES on the details-verification page.`,
+    `Event ${ev.public_id || `#${ev.id}`} (${dateStr}) has been moved to NEEDS REVIEW.`,
+    "",
+    "Requested changes:",
+    ...(changeLines.length ? changeLines : ["  (see notes)"]),
+    "",
+    `Guest: ${ev.name || "—"} · ${ev.email || "—"} · ${ev.phone || "—"}`,
+    "",
+    "Review it on the admin dashboard (/admin), then resolve the review to put the event back on track.",
+  ];
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to: MAIL_REPLY_TO,
+    replyTo: (ev.email || "").trim() || MAIL_REPLY_TO,
+    subject: `Needs review: ${ev.name || "Guest"} changed event details — ${dateStr}`,
+    text: lines.join("\n"),
+  });
+  return { configured: true, sent: true };
+}
