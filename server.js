@@ -15,6 +15,7 @@ import { getDb } from "./server/db.js";
 import { createEventRecord } from "./server/pipeline.js";
 import { adminRouter } from "./server/admin.js";
 import { verifyRouter } from "./server/verify.js";
+import { staffPortalRouter } from "./server/staffPortal.js";
 import { runPipelineSweep } from "./server/pipelineScheduler.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -647,9 +648,12 @@ if (cron.validate(REMINDER_CRON)) {
 // --- Booking pipeline: staff admin dashboard + guest details verification ---
 // /admin and /api/admin/* sit behind HTTP Basic Auth (ADMIN_USER/ADMIN_PASSWORD;
 // 503 until those are set). /verify/:token is the guest-facing confirmation
-// page linked from the 15-day email. Both live OUTSIDE the Vite SPA.
+// page linked from the 15-day email, and /staff/:token is the staff
+// availability portal linked from the staffing-request email. All live
+// OUTSIDE the Vite SPA.
 app.use(adminRouter);
 app.use(verifyRouter);
+app.use(staffPortalRouter);
 
 // --- Serve the built front-end (production) ---
 const distDir = path.join(__dirname, "dist");
