@@ -17,7 +17,7 @@ services:
       sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "24"
       # Event booking pipeline: SQLite on the persistent disk, staff dashboard
       # credentials (set in the dashboard — /admin answers 503 until they
       # exist), and the timeline-email kill switch (flip to "true" to start
@@ -102,7 +102,7 @@ services:
       - key: VITE_SITE_MODE
         value: "weddings"
       - key: NODE_VERSION
-        value: "20"
+        value: "24"
       - key: DESKWORKS_API_KEY
         sync: false
       - key: DESKWORKS_BASE_URL
