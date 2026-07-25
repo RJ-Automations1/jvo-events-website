@@ -8,9 +8,29 @@ services:
     plan: starter
     buildCommand: npm install && npm run build
     startCommand: node server.js
+    # Persistent disk for the booking-pipeline SQLite database (survives
+    # deploys). Only this service gets it — the weddings-mode service shares
+    # the codebase but doesn't run the pipeline.
+    disk:
+      name: jvo-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "20"
+      # Event booking pipeline: SQLite on the persistent disk, staff dashboard
+      # credentials (set in the dashboard — /admin answers 503 until they
+      # exist), and the timeline-email kill switch (flip to "true" to start
+      # sending the 45/30/15/14/3-day emails; while "false" the daily sweep
+      # only logs what it would send).
+      - key: DB_PATH
+        value: "/data/jvo.db"
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: PIPELINE_EMAILS_ENABLED
+        value: "false"
       - key: DESKWORKS_API_KEY
         sync: false
       - key: DESKWORKS_BASE_URL
