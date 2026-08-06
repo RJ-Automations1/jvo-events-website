@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { JVO_SYSTEM_PROMPT } from "./server/jvoKnowledge.js";
 import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
-import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
+import { getBookedDates, createCalendarEvent, createTourEvent, getTourCounts, TOUR_CAPACITY } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
 import { sendBookingConfirmation, sendBookingNotification, sendTourConfirmation, sendTourNotification, sendInquiryNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
@@ -246,6 +246,51 @@ function weekdayOf(ymd) {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
+/**
+ * Which tour slots are already full, so the form can grey them out instead of
+ * letting someone pick a time that will be refused on submit.
+ *
+ * Returns only the FULL slots rather than raw counts — how many people are
+ * touring at 10:00 is nobody's business but ours.
+ */
+app.get("/api/tour-availability", async (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from || "")) ? String(req.query.from) : today;
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to || ""))
+    ? String(req.query.to)
+    : new Date(Date.now() + 120 * 86400000).toISOString().slice(0, 10);
+
+  try {
+    const { configured, capacity, counts } = await getTourCounts(from, to);
+    const fullSlots = {};
+    for (const [ymd, byTime] of Object.entries(counts)) {
+      const full = Object.entries(byTime)
+        .filter(([, n]) => n >= capacity)
+        .map(([hhmm]) => hhmm)
+        .sort();
+      if (full.length) fullSlots[ymd] = full;
+    }
+    return res.json({ ok: true, configured, capacity, fullSlots });
+  } catch (err) {
+    console.error("[/api/tour-availability] failed:", err?.message || err);
+    /*
+     * Fail open: an availability outage greys out nothing, so the form still
+     * works. The capacity guard in /api/book-tour is the real enforcement —
+     * this endpoint only decides what the UI dims.
+     */
+    return res.json({ ok: true, configured: false, capacity: TOUR_CAPACITY, fullSlots: {} });
+  }
+});
+
+/*
+ * Tour bookings are serialised. Two people submitting the same slot at the same
+ * moment would otherwise both read "1 booked", both pass the capacity check,
+ * and both insert — three tours in a slot that holds two. Chaining the handler
+ * makes the read-then-insert atomic for this process, which is all we need
+ * while the site runs as a single instance.
+ */
+let tourChain = Promise.resolve();
+
 /** Tour scheduling endpoint — validates the slot, then creates a calendar hold + emails. */
 app.post("/api/book-tour", async (req, res) => {
   const b = req.body || {};
@@ -285,29 +330,49 @@ app.post("/api/book-tour", async (req, res) => {
     message: b.message ? String(b.message).trim() : "",
   };
 
-  try {
-    const calendar = await createTourEvent(tour);
-    if (!calendar.configured) {
-      // Calendar not set up — can't actually schedule anything.
-      throw new Error("calendar not configured");
+  // Queue behind any in-flight tour booking so the capacity check can't race.
+  const run = tourChain.then(async () => {
+    try {
+      const calendar = await createTourEvent(tour);
+      if (!calendar.configured) {
+        // Calendar not set up — can't actually schedule anything.
+        throw new Error("calendar not configured");
+      }
+
+      /*
+       * Slot filled up while they were filling in the form. Not an error on
+       * their part, so say what happened and let them pick again — and don't
+       * email anyone, because no tour was booked.
+       */
+      if (calendar.full) {
+        return res.status(409).json({
+          error: `That time just filled up — we can host ${TOUR_CAPACITY} tours at once. Please pick another time.`,
+          slotFull: true,
+          tourDate,
+          tourTime,
+        });
+      }
+
+      // Best-effort emails — never fail a booked tour because mail hiccuped.
+      const [guest, venue] = await Promise.allSettled([
+        sendTourConfirmation(tour),
+        sendTourNotification(tour),
+      ]);
+      if (guest.status === "rejected") console.error("[/api/book-tour] guest email:", guest.reason?.message);
+      if (venue.status === "rejected") console.error("[/api/book-tour] venue email:", venue.reason?.message);
+
+      return res.status(200).json({ ok: true, htmlLink: calendar.htmlLink ?? null });
+    } catch (err) {
+      console.error("[/api/book-tour] failed:", err);
+      return res.status(502).json({
+        error:
+          "We couldn't schedule your tour right now. Please try again shortly or email eventsjvo@gmail.com.",
+      });
     }
-
-    // Best-effort emails — never fail a booked tour because mail hiccuped.
-    const [guest, venue] = await Promise.allSettled([
-      sendTourConfirmation(tour),
-      sendTourNotification(tour),
-    ]);
-    if (guest.status === "rejected") console.error("[/api/book-tour] guest email:", guest.reason?.message);
-    if (venue.status === "rejected") console.error("[/api/book-tour] venue email:", venue.reason?.message);
-
-    return res.status(200).json({ ok: true, htmlLink: calendar.htmlLink ?? null });
-  } catch (err) {
-    console.error("[/api/book-tour] failed:", err);
-    return res.status(502).json({
-      error:
-        "We couldn't schedule your tour right now. Please try again shortly or email eventsjvo@gmail.com.",
-    });
-  }
+  });
+  // Keep the chain alive even if this request threw, or every later tour hangs.
+  tourChain = run.catch(() => undefined);
+  await run;
 });
 
 /**
