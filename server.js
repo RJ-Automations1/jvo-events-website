@@ -56,7 +56,9 @@ app.use((req, res, next) => {
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // --- Customer chatbot: answers questions from the JVO capability overview ---
-const CHAT_MODEL = process.env.CHAT_MODEL || "claude-opus-4-8";
+const CHAT_MODEL = process.env.CHAT_MODEL || "claude-opus-5";
+// Events vs. the standalone Weddings deploy — same venue facts, different framing.
+const CHAT_SYSTEM_PROMPT = systemPromptFor(process.env.SITE_MODE);
 const CHAT_FALLBACK =
   "Sorry — I'm having trouble right now. Please email eventsjvo@gmail.com or call 678-519-4723 and the JVO team will help you directly.";
 let anthropicClient = null;
@@ -96,8 +98,20 @@ app.post("/api/chat", async (req, res) => {
     const client = getAnthropic();
     const msg = await client.messages.create({
       model: CHAT_MODEL,
-      max_tokens: 1024,
-      system: JVO_SYSTEM_PROMPT,
+      // Headroom for adaptive thinking plus the answer. Claude Opus 5 thinks by
+      // default, and max_tokens caps thinking and reply together — the old 1024
+      // would now truncate replies mid-sentence.
+      max_tokens: 2048,
+      // A FAQ bot wants answers fast; low effort keeps latency and cost down.
+      output_config: { effort: "low" },
+      system: [
+        {
+          type: "text",
+          text: CHAT_SYSTEM_PROMPT,
+          // Same prompt every request — cached reads cost ~a tenth of full price.
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages,
     });
     const reply = (msg.content || [])

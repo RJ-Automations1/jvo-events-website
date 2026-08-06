@@ -1,10 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 
+import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
+
 type Msg = { role: "user" | "assistant"; content: string };
 
 const GOLD = "#c9a96a";
-const GREETING =
-  "Hi! I'm the JVO Events assistant. Ask me about pricing, weddings, what we host, tours, or booking your event. How can I help?";
+
+/*
+ * The standalone Weddings deploy runs this same component, so everything the
+ * visitor sees is branded from the build's site mode. The server applies the
+ * matching framing to the system prompt (server/jvoKnowledge.js).
+ */
+const ASSISTANT_NAME = IS_WEDDINGS_SITE ? "JVO Weddings Assistant" : "JVO Events Assistant";
+const LAUNCHER_LABEL = IS_WEDDINGS_SITE ? "Chat with JVO Weddings" : "Chat with JVO Events";
+const HEADER_SUBTITLE = IS_WEDDINGS_SITE
+  ? "Ask about packages, pricing, tours & booking"
+  : "Ask about pricing, weddings, tours & booking";
+const GREETING = IS_WEDDINGS_SITE
+  ? "Hi! I'm the JVO Weddings assistant. Ask me about our wedding packages, enhancements, pricing, tours, or booking your date. How can I help?"
+  : "Hi! I'm the JVO Events assistant. Ask me about pricing, weddings, what we host, tours, or booking your event. How can I help?";
 
 /**
  * Floating customer chatbot. A gold launcher in the bottom-right opens a dark,
@@ -66,7 +80,7 @@ export default function ChatWidget() {
       {/* Launcher */}
       <button
         type="button"
-        aria-label={open ? "Close chat" : "Chat with JVO Events"}
+        aria-label={open ? "Close chat" : LAUNCHER_LABEL}
         onClick={() => setOpen((v) => !v)}
         className="fixed z-[60] flex items-center justify-center transition-transform hover:scale-105"
         style={{
@@ -98,7 +112,7 @@ export default function ChatWidget() {
         <div
           className="fixed z-[60] flex flex-col overflow-hidden"
           role="dialog"
-          aria-label="JVO Events chat"
+          aria-label={IS_WEDDINGS_SITE ? "JVO Weddings chat" : "JVO Events chat"}
           style={{
             right: 20,
             bottom: 90,
@@ -123,10 +137,10 @@ export default function ChatWidget() {
             </span>
             <div>
               <div className="text-white text-sm font-bold leading-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
-                JVO Events Assistant
+                {ASSISTANT_NAME}
               </div>
               <div className="text-white/40 text-[0.7rem]" style={{ fontFamily: "'Lato', sans-serif" }}>
-                Ask about pricing, weddings, tours &amp; booking
+                {HEADER_SUBTITLE}
               </div>
             </div>
           </div>

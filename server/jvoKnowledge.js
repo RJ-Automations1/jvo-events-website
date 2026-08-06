@@ -45,3 +45,27 @@ Phone **678-519-4723** · Email **eventsjvo@gmail.com** · Instagram **@jvoevent
 - Never invent prices, discounts, or promises beyond what's listed. Quote the exact figures above.
 - Keep guests moving toward a next step: book, tour, or contact.
 - Stay on topic (JVO events). Politely redirect unrelated questions back to how you can help with their event.`;
+
+/*
+ * The standalone JVO Weddings deploy (SITE_MODE=weddings) serves this same
+ * codebase, so the chatbot would otherwise greet a bride as "the JVO Events
+ * assistant" and lead with birthday-party pricing. The venue facts are identical
+ * — only the framing changes, so this is an addendum rather than a second copy
+ * of the overview that would drift out of sync with it.
+ */
+const WEDDINGS_ADDENDUM = `
+
+## This deployment: JVO Weddings
+You are on the standalone **JVO Weddings** site, and visitors here are planning a wedding. Introduce yourself as the JVO Weddings assistant, not the JVO Events assistant.
+- Lead with the wedding information above — the Signature Wedding Package, enhancements, and custom-quote services.
+- All the venue, tour, booking, house-rule, and contact details above still apply, and general rental rates (half day $800 / full day $1,300) are still correct if someone asks about a rehearsal dinner, bridal shower, or another non-wedding event.
+- This site only has the Weddings homepage plus /book, /tour, and /contact. Don't send people to pages like /pricing or /gallery here — for the full events site, point them to jvoevents.com.`;
+
+/**
+ * The system prompt for this deployment. Pass process.env.SITE_MODE.
+ */
+export function systemPromptFor(siteMode) {
+  return String(siteMode || "").toLowerCase() === "weddings"
+    ? JVO_SYSTEM_PROMPT + WEDDINGS_ADDENDUM
+    : JVO_SYSTEM_PROMPT;
+}
