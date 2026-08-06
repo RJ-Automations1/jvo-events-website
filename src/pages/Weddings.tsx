@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import AvailabilityCalendar, { prettyDate, toYmd } from "@/components/AvailabilityCalendar";
 import { useReveal } from "@/lib/useReveal";
 import { VIDEO, VIDEO_POSTER } from "@/lib/media";
 
@@ -22,7 +23,7 @@ const included: { title: string; items: string[] }[] = [
       "125 white chair covers (included)",
       "4 60-inch banquet tables",
       "125 folding chairs",
-      "2 6ft tables · 2 6ft rectangle tables",
+      "2 6ft folding tables",
       "2 highboy tables",
       "6 steam tables",
       "20 cocktail bar stools",
@@ -137,6 +138,20 @@ const PREFILL_FIELDS = {
   package: "package",
   enhancements: "enhancements",
   estimatedTotal: "estimatedTotal",
+} as const;
+
+/**
+ * The form's "Requested Event Date" field (q102), split into month/day/year
+ * sub-fields. Prefilled from the date the couple picked on the availability
+ * calendar so they never retype it — and never land on a date we can't honour.
+ *
+ * Prefill is applied client-side by JotForm and is a convenience only: if it
+ * ever stops matching, the couple just picks the date in the form as before.
+ */
+const DATE_PREFILL = {
+  month: "requestedEvent[month]",
+  day: "requestedEvent[day]",
+  year: "requestedEvent[year]",
 } as const;
 
 /** Enhancements quoted per event — the "Free / personalized quote" add-ons from the form. */
@@ -424,22 +439,35 @@ function EstimateCalculator({
 }
 
 /**
- * Embedded JotForm reservation form. The couple's live estimate — the Signature
- * Package plus any enhancements they tapped — is carried into the form through
- * URL prefill, so their inquiry arrives with the total already attached.
+ * Embedded JotForm reservation form. The chosen wedding date and the couple's
+ * live estimate — the Signature Package plus any enhancements they tapped — are
+ * carried into the form through URL prefill, so their inquiry arrives with the
+ * date and total already attached.
+ *
+ * The prefill URL is captured **once, on mount**. Changing an enhancement after
+ * the form has appeared would otherwise change the iframe `src` and reload the
+ * form mid-typing. The parent remounts this component (via `key`) when the date
+ * changes, which is the one case where a reload is what the couple asked for.
  */
 function ReserveForm({
+  date,
   chosen,
   total,
   quoteServices,
 }: {
+  /** The date picked on the availability calendar — always set by the time we render. */
+  date: Date;
   chosen: ChosenItem[];
   total: number;
   /** Selected no-price services — flagged in the inquiry so JVO can loop in the preferred vendor. */
   quoteServices: string[];
 }) {
-  const src = useMemo(() => {
+  const [src] = useState(() => {
     const p = new URLSearchParams();
+    const [year, month, day] = toYmd(date).split("-");
+    p.set(DATE_PREFILL.month, month);
+    p.set(DATE_PREFILL.day, day);
+    p.set(DATE_PREFILL.year, year);
     p.set(PREFILL_FIELDS.package, `Signature Wedding Package (${fmtUSD(BASE_PACKAGE)})`);
     const items = [
       ...chosen.map((e) => (e.perUnit ? `${e.label} ×${e.count}` : e.label)),
@@ -448,7 +476,7 @@ function ReserveForm({
     if (items.length) p.set(PREFILL_FIELDS.enhancements, items.join(", "));
     p.set(PREFILL_FIELDS.estimatedTotal, fmtUSD(total));
     return `https://form.jotform.com/${JOTFORM_ID}?${p.toString()}`;
-  }, [chosen, total, quoteServices]);
+  });
 
   // JotForm's embed handler auto-resizes the iframe to match the form's height.
   useEffect(() => {
@@ -521,6 +549,22 @@ export default function Weddings() {
   const quoteServices = customQuoteEnhancements
     .map((c) => c.label)
     .filter((label) => quoteSelected[label]);
+
+  // Booking is gated on a date: the availability calendar comes first, and the
+  // JotForm only appears once the couple has picked a day we can actually honour.
+  const [weddingDate, setWeddingDate] = useState<Date | undefined>(undefined);
+  const formStepRef = useRef<HTMLDivElement>(null);
+
+  // Bring the form into view as soon as it appears, so picking a date visibly
+  // moves the couple forward instead of leaving the next step below the fold.
+  useEffect(() => {
+    if (!weddingDate) return;
+    const id = window.setTimeout(
+      () => formStepRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      120
+    );
+    return () => window.clearTimeout(id);
+  }, [weddingDate]);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh" }}>
@@ -830,7 +874,7 @@ export default function Weddings() {
         </div>
       </section>
 
-      {/* Reserve your date — embedded JotForm, prefilled with the live estimate */}
+      {/* Reserve your date — availability calendar first, then the prefilled JotForm */}
       <section id="reserve" style={{ background: "#080808", padding: "90px 0", scrollMarginTop: "80px" }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
@@ -842,15 +886,89 @@ export default function Weddings() {
             </h2>
             <div className="reveal accent-divider mx-auto mt-5" />
             <p className="reveal text-white/55 text-base sm:text-lg leading-relaxed mt-6" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Every unforgettable celebration begins with a conversation. Tell us about your
-              special day, and we'll be in touch to create a personalized experience. Wedding
-              packages start at{" "}
+              Every unforgettable celebration begins with a conversation. Start by choosing an
+              available date below — then tell us about your special day and we'll be in touch
+              to create a personalized experience. Wedding packages start at{" "}
               <span style={{ color: "#c9a96a", fontWeight: 700 }}>$4,000</span>.
             </p>
           </div>
 
-          <div className="reveal" style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)", padding: "8px" }}>
-            <ReserveForm chosen={chosen} total={total} quoteServices={quoteServices} />
+          {/* Step 1 — pick an available date */}
+          <div
+            className="reveal"
+            style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)", padding: "32px 24px" }}
+          >
+            <p
+              className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase text-center mb-1"
+              style={{ fontFamily: "'Lato', sans-serif" }}
+            >
+              Step 1 · Check Availability
+            </p>
+            <h3
+              className="text-white text-xl font-bold text-center mb-7"
+              style={{ fontFamily: "'Playfair Display', serif" }}
+            >
+              Choose your wedding date
+            </h3>
+
+            <AvailabilityCalendar selected={weddingDate} onSelect={setWeddingDate} />
+
+            {weddingDate && (
+              <div
+                className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-7 px-5 py-4"
+                style={{ border: "1px solid rgba(201,169,106,0.45)", background: "rgba(201,169,106,0.08)" }}
+              >
+                <span className="text-white text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
+                  <span className="text-[#c9a96a]">✓</span> Your date:{" "}
+                  <strong>{prettyDate(weddingDate)}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setWeddingDate(undefined)}
+                  className="text-white/55 text-xs tracking-[0.15em] uppercase hover:text-white transition-colors"
+                  style={{ fontFamily: "'Lato', sans-serif", textDecoration: "underline" }}
+                >
+                  Change date
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2 — the reservation form, unlocked by the date above */}
+          <div ref={formStepRef} style={{ scrollMarginTop: "90px" }}>
+            {weddingDate ? (
+              <div className="mt-8">
+                <p
+                  className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase text-center mb-1"
+                  style={{ fontFamily: "'Lato', sans-serif" }}
+                >
+                  Step 2 · Your Details
+                </p>
+                <h3
+                  className="text-white text-xl font-bold text-center mb-6"
+                  style={{ fontFamily: "'Playfair Display', serif" }}
+                >
+                  Tell us about your day
+                </h3>
+                <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)", padding: "8px" }}>
+                  {/* Keyed by date so changing it rebuilds the form with the new prefill. */}
+                  <ReserveForm
+                    key={toYmd(weddingDate)}
+                    date={weddingDate}
+                    chosen={chosen}
+                    total={total}
+                    quoteServices={quoteServices}
+                  />
+                </div>
+              </div>
+            ) : (
+              <p
+                className="text-white/35 text-sm text-center mt-8"
+                style={{ fontFamily: "'Lato', sans-serif" }}
+              >
+                Pick an available date above and the reservation form will open right here.
+              </p>
+            )}
           </div>
         </div>
       </section>

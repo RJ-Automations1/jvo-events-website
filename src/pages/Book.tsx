@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import AvailabilityCalendar, { prettyDate, toYmd } from "@/components/AvailabilityCalendar";
 import { useReveal } from "@/lib/useReveal";
 import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
 
@@ -17,9 +18,42 @@ const JOTFORM_SRC = `https://form.jotform.com/${JOTFORM_ID}`;
 const CHEDDARUP_DEPOSIT_URL =
   "https://my.cheddarup.com/c/jvo-event-security-deposit/items";
 
+/**
+ * "Requested Event Date" (q102) on the weddings form, split into sub-fields —
+ * prefilled from the availability calendar so the couple doesn't retype it.
+ * Prefill is a convenience; the form still owns validation.
+ */
+function weddingFormSrc(date: Date): string {
+  const [year, month, day] = toYmd(date).split("-");
+  const p = new URLSearchParams({
+    "requestedEvent[month]": month,
+    "requestedEvent[day]": day,
+    "requestedEvent[year]": year,
+  });
+  return `${JOTFORM_SRC}?${p.toString()}`;
+}
+
 export default function BookingPage() {
   useReveal();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // On the weddings site the form is gated behind the availability calendar:
+  // pick a date we can honour first, then fill in the details. The events site
+  // keeps its original single-step form.
+  const [weddingDate, setWeddingDate] = useState<Date | undefined>(undefined);
+  const showForm = !IS_WEDDINGS_SITE || !!weddingDate;
+  const formStepRef = useRef<HTMLParagraphElement>(null);
+
+  // Bring the form into view once a date unlocks it, so the next step is never
+  // left below the fold on a phone.
+  useEffect(() => {
+    if (!weddingDate) return;
+    const id = window.setTimeout(
+      () => formStepRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      120
+    );
+    return () => window.clearTimeout(id);
+  }, [weddingDate]);
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -86,24 +120,79 @@ export default function BookingPage() {
             <div className="accent-divider mx-auto mt-5" />
             <p className="text-white/50 text-base leading-relaxed mt-6 max-w-xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
               {IS_WEDDINGS_SITE
-                ? "Tell us about your special day in the quick form below — no account needed. We'll be in touch to create a personalized experience."
+                ? "Start by choosing an available date on the calendar — then tell us about your special day and we'll be in touch to create a personalized experience."
                 : "Tell us about your event in the quick form below — no account needed. When you submit, we'll take you straight to pay your $150 security deposit."}
             </p>
           </div>
 
-          <div
-            className="reveal"
-            style={{ background: "#fff", borderRadius: "0.25rem", overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)" }}
-          >
-            <iframe
-              ref={iframeRef}
-              title={IS_WEDDINGS_SITE ? "JVO Weddings Registration Form" : "JVO Event Space Registration Form"}
-              src={JOTFORM_SRC}
-              style={{ width: "100%", border: "none", minHeight: "1000px", display: "block" }}
-              scrolling="no"
-              allow="geolocation; microphone; camera; fullscreen; payment"
-            />
-          </div>
+          {/* Step 1 (weddings only) — check availability before the form opens. */}
+          {IS_WEDDINGS_SITE && (
+            <div
+              className="reveal mb-8"
+              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: "0.35rem", padding: "32px 24px" }}
+            >
+              <p className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase text-center mb-1" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Step 1 · Check Availability
+              </p>
+              <h3 className="text-white text-xl font-bold text-center mb-7" style={{ fontFamily: "'Playfair Display', serif" }}>
+                Choose your wedding date
+              </h3>
+
+              <AvailabilityCalendar selected={weddingDate} onSelect={setWeddingDate} />
+
+              {weddingDate && (
+                <div
+                  className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 mt-7 px-5 py-4"
+                  style={{ border: "1px solid rgba(201,169,106,0.45)", background: "rgba(201,169,106,0.08)" }}
+                >
+                  <span className="text-white text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
+                    <span className="text-[#c9a96a]">✓</span> Your date:{" "}
+                    <strong>{prettyDate(weddingDate)}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setWeddingDate(undefined)}
+                    className="text-white/55 text-xs tracking-[0.15em] uppercase hover:text-white transition-colors"
+                    style={{ fontFamily: "'Lato', sans-serif", textDecoration: "underline" }}
+                  >
+                    Change date
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {IS_WEDDINGS_SITE && showForm && (
+            <p
+              ref={formStepRef}
+              className="text-[#c9a96a] text-[0.65rem] tracking-[0.25em] uppercase text-center mb-4"
+              style={{ fontFamily: "'Lato', sans-serif", scrollMarginTop: "90px" }}
+            >
+              Step 2 · Your Details
+            </p>
+          )}
+
+          {showForm ? (
+            <div
+              className="reveal"
+              style={{ background: "#fff", borderRadius: "0.25rem", overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)" }}
+            >
+              <iframe
+                ref={iframeRef}
+                // Keyed by date so changing it rebuilds the form with the new prefill.
+                key={weddingDate ? toYmd(weddingDate) : "form"}
+                title={IS_WEDDINGS_SITE ? "JVO Weddings Registration Form" : "JVO Event Space Registration Form"}
+                src={weddingDate ? weddingFormSrc(weddingDate) : JOTFORM_SRC}
+                style={{ width: "100%", border: "none", minHeight: "1000px", display: "block" }}
+                scrolling="no"
+                allow="geolocation; microphone; camera; fullscreen; payment"
+              />
+            </div>
+          ) : (
+            <p className="text-white/35 text-sm text-center" style={{ fontFamily: "'Lato', sans-serif" }}>
+              Pick an available date above and the reservation form will open right here.
+            </p>
+          )}
 
           <div className="text-center mt-10 space-y-2">
             <a href="mailto:eventsjvo@gmail.com" className="block text-white/50 text-sm hover:text-white/80 transition-colors" style={{ fontFamily: "'Lato', sans-serif" }}>
