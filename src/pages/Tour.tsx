@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { toast } from "sonner";
@@ -59,6 +59,31 @@ export default function TourPage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ date: Date; time: string } | null>(null);
 
+  /*
+   * Slots already at capacity, keyed by YYYY-MM-DD. The server decides what
+   * counts as full and sends only the full ones — we just dim them. If this
+   * request fails we show every slot as open and let /api/book-tour do the
+   * refusing, which is the same behaviour the page had before.
+   */
+  const [fullSlots, setFullSlots] = useState<Record<string, string[]>>({});
+
+  const refreshAvailability = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tour-availability");
+      const data = (await res.json()) as { fullSlots?: Record<string, string[]> };
+      setFullSlots(data.fullSlots ?? {});
+    } catch {
+      setFullSlots({});
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshAvailability();
+  }, [refreshAvailability]);
+
+  const takenToday = date ? (fullSlots[toYmd(date)] ?? []) : [];
+  const isFull = (slot: string) => takenToday.includes(slot);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || !email.trim()) {
@@ -88,12 +113,22 @@ export default function TourPage() {
           message: message.trim(),
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; slotFull?: boolean };
       if (!res.ok) {
         toast.error(data.error || "We couldn't schedule your tour. Please try again.");
+        /*
+         * Someone else took the last spot while this form was open. Re-read
+         * availability and drop the now-invalid choice, so the slot they just
+         * lost is visibly struck through instead of still looking selectable.
+         */
+        if (data.slotFull) {
+          setTime("");
+          void refreshAvailability();
+        }
         return;
       }
       setDone({ date, time });
+      void refreshAvailability();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
       toast.error("Network error — please try again in a moment.");
@@ -264,11 +299,14 @@ export default function TourPage() {
                     {date ? (
                       <div className="grid grid-cols-3 gap-2">
                         {SLOTS.map((s) => {
-                          const active = s === time;
+                          const full = isFull(s);
+                          const active = s === time && !full;
                           return (
                             <button
                               key={s}
                               type="button"
+                              disabled={full}
+                              title={full ? "Fully booked — please choose another time" : undefined}
                               onClick={() => setTime(s)}
                               style={{
                                 padding: "0.6rem 0.25rem",
@@ -276,14 +314,25 @@ export default function TourPage() {
                                 fontFamily: "'Lato', sans-serif",
                                 fontSize: "0.78rem",
                                 letterSpacing: "0.02em",
-                                cursor: "pointer",
+                                cursor: full ? "not-allowed" : "pointer",
                                 transition: "all 0.2s ease",
-                                background: active ? "#ffffff" : "rgba(255,255,255,0.04)",
-                                color: active ? "#080808" : "rgba(255,255,255,0.75)",
+                                background: active
+                                  ? "#ffffff"
+                                  : full
+                                    ? "rgba(255,255,255,0.02)"
+                                    : "rgba(255,255,255,0.04)",
+                                color: active
+                                  ? "#080808"
+                                  : full
+                                    ? "rgba(255,255,255,0.25)"
+                                    : "rgba(255,255,255,0.75)",
                                 border: active
                                   ? "1px solid #ffffff"
-                                  : "1px solid rgba(255,255,255,0.14)",
+                                  : full
+                                    ? "1px solid rgba(255,255,255,0.06)"
+                                    : "1px solid rgba(255,255,255,0.14)",
                                 fontWeight: active ? 700 : 400,
+                                textDecoration: full ? "line-through" : "none",
                               }}
                             >
                               {label12(s)}

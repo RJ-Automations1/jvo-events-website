@@ -31,6 +31,26 @@
 const CALENDAR_ID = process.env.GOOGLE_CALENDAR_ID || "";
 const SA_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "";
 
+/*
+ * The "JVO Office" calendar — the one the Virtual Office site books its rooms
+ * against. Tours are mirrored onto it so office staff see them without having
+ * to watch the events calendar, but the copy is transparent: a tour must never
+ * make a paid room unbookable at jonesborovirtualoffice.com.
+ *
+ * CALENDAR_ID above (the Outdoor Event Space calendar) stays the source of
+ * truth for tours. Capacity is counted there and only there, so a failed or
+ * missing mirror can never change who is allowed to book.
+ */
+const OFFICE_CALENDAR_ID =
+  process.env.JVO_OFFICE_CALENDAR_ID ||
+  "5e39a34a1b48df3ae7baa65d57b57d2ce46e482a040985343617c96dbdc5004e@group.calendar.google.com";
+
+/*
+ * How many tours can run at the same time. Two guides, two groups — a third
+ * booking at the same start time has nobody to walk it.
+ */
+export const TOUR_CAPACITY = Math.max(1, Number(process.env.TOUR_CAPACITY || "2"));
+
 // Timezone the venue operates in (Jonesboro, GA → Eastern). Used to stamp tour
 // appointments at their correct local time. Shared with the payment-reminder math.
 const EVENT_TZ = process.env.EVENT_TIMEZONE || "America/New_York";
@@ -217,6 +237,93 @@ function addMinutesToHHMM(hhmm, mins) {
 }
 
 /**
+ * Every website-booked tour between two dates, as { date, time, guestEmail }.
+ *
+ * Reads the events calendar only — see OFFICE_CALENDAR_ID on why the mirror is
+ * never counted. Cancelled events are dropped; Google keeps returning them.
+ *
+ * @param {string} fromYmd inclusive YYYY-MM-DD
+ * @param {string} toYmd   inclusive YYYY-MM-DD
+ */
+async function listWebsiteTours(fromYmd, toYmd) {
+  const calendar = await getCalendarClient();
+  const { data } = await calendar.events.list({
+    calendarId: CALENDAR_ID,
+    privateExtendedProperty: ["jvoSource=website", "jvoType=tour"],
+    // Pad the window by a day on each side: the query is in UTC but slots are
+    // stamped in Eastern, so an early or late slot can land on the next UTC day.
+    timeMin: new Date(`${addDays(fromYmd, -1)}T00:00:00Z`).toISOString(),
+    timeMax: new Date(`${addDays(toYmd, 2)}T00:00:00Z`).toISOString(),
+    singleEvents: true,
+    maxResults: 2500,
+  });
+  return (data.items || [])
+    .filter((e) => e.status !== "cancelled" && e.start?.dateTime)
+    .map((e) => ({
+      // start.dateTime comes back in the calendar's local time, so slicing the
+      // literal is the same convention the slot strings use.
+      date: e.start.dateTime.slice(0, 10),
+      time: e.start.dateTime.slice(11, 16),
+      guestEmail: e.extendedProperties?.private?.guestEmail || "",
+    }))
+    .filter((t) => t.date >= fromYmd && t.date <= toYmd);
+}
+
+/**
+ * How many tours are booked per slot across a date range, so the tour form can
+ * grey out times that are already full.
+ *
+ * @returns {Promise<{configured:boolean, capacity:number, counts:Record<string,Record<string,number>>}>}
+ */
+export async function getTourCounts(fromYmd, toYmd) {
+  if (!CALENDAR_ID || !SA_JSON) {
+    return { configured: false, capacity: TOUR_CAPACITY, counts: {} };
+  }
+  const tours = await listWebsiteTours(fromYmd, toYmd);
+  const counts = {};
+  for (const t of tours) {
+    (counts[t.date] ||= {});
+    counts[t.date][t.time] = (counts[t.date][t.time] || 0) + 1;
+  }
+  return { configured: true, capacity: TOUR_CAPACITY, counts };
+}
+
+/**
+ * Mirror a tour onto the JVO Office calendar for staff visibility.
+ *
+ * Best-effort by design: the caller has already created the real appointment,
+ * and a mirror that fails (or a service account that was never shared on the
+ * office calendar) must not turn a confirmed tour into an error for the guest.
+ * Always transparent — see OFFICE_CALENDAR_ID.
+ */
+async function mirrorTourToOfficeCalendar({ date, time, summary, description }) {
+  if (!OFFICE_CALENDAR_ID) return { mirrored: false, reason: "not configured" };
+  try {
+    const calendar = await getCalendarClient();
+    await calendar.events.insert({
+      calendarId: OFFICE_CALENDAR_ID,
+      requestBody: {
+        summary,
+        description,
+        start: { dateTime: `${date}T${time}:00`, timeZone: EVENT_TZ },
+        end: {
+          dateTime: `${date}T${addMinutesToHHMM(time, TOUR_DURATION_MIN)}:00`,
+          timeZone: EVENT_TZ,
+        },
+        transparency: "transparent",
+        extendedProperties: {
+          private: { jvoSource: "website", jvoType: "tour-mirror" },
+        },
+      },
+    });
+    return { mirrored: true };
+  } catch (err) {
+    console.error("[calendar] office-calendar tour mirror failed:", err?.message || err);
+    return { mirrored: false, reason: err?.message || "insert failed" };
+  }
+}
+
+/**
  * Create a TIMED tour appointment on the booking calendar. Unlike an event
  * booking (an all-day hold that blocks the whole date), a tour is a short slot
  * at a specific local time and is marked `transparent` so it does NOT grey the
@@ -245,27 +352,41 @@ export async function createTourEvent(tour) {
   const email = tour.email ? String(tour.email).trim() : "";
   const calendar = await getCalendarClient();
 
-  // Idempotency — skip if a website tour for this guest already exists at this start.
-  try {
-    const { data } = await calendar.events.list({
-      calendarId: CALENDAR_ID,
-      privateExtendedProperty: ["jvoSource=website", "jvoType=tour"],
-      timeMin: new Date(`${date}T00:00:00Z`).toISOString(),
-      timeMax: new Date(`${addDays(date, 1)}T00:00:00Z`).toISOString(),
-      singleEvents: true,
-      maxResults: 50,
-    });
-    const existing = (data.items || []).find(
-      (e) =>
-        e.status !== "cancelled" &&
-        (e.start?.dateTime || "").slice(11, 16) === time &&
-        (e.extendedProperties?.private?.guestEmail || "") === email
-    );
-    if (existing) {
-      return { configured: true, created: false, duplicate: true, id: existing.id, htmlLink: existing.htmlLink };
-    }
-  } catch {
-    // Fall through and attempt creation if the dedup lookup fails.
+  /*
+   * One read answers both questions: has THIS guest already booked this slot
+   * (idempotent double-submit), and is the slot already at capacity?
+   *
+   * This lookup deliberately does NOT swallow errors. It used to, so that a
+   * flaky dedup read still let the booking through — harmless when the only
+   * thing at stake was a duplicate. Capacity can't work that way: a read that
+   * fails open is a slot with no limit at all. If the calendar is unreadable we
+   * refuse the booking, which is the same thing that already happened when the
+   * insert below failed.
+   */
+  const { data } = await calendar.events.list({
+    calendarId: CALENDAR_ID,
+    privateExtendedProperty: ["jvoSource=website", "jvoType=tour"],
+    timeMin: new Date(`${addDays(date, -1)}T00:00:00Z`).toISOString(),
+    timeMax: new Date(`${addDays(date, 2)}T00:00:00Z`).toISOString(),
+    singleEvents: true,
+    maxResults: 250,
+  });
+  const atThisSlot = (data.items || []).filter(
+    (e) =>
+      e.status !== "cancelled" &&
+      (e.start?.dateTime || "").slice(0, 10) === date &&
+      (e.start?.dateTime || "").slice(11, 16) === time
+  );
+
+  const existing = atThisSlot.find(
+    (e) => (e.extendedProperties?.private?.guestEmail || "") === email && email !== ""
+  );
+  if (existing) {
+    return { configured: true, created: false, duplicate: true, id: existing.id, htmlLink: existing.htmlLink };
+  }
+
+  if (atThisSlot.length >= TOUR_CAPACITY) {
+    return { configured: true, created: false, full: true, booked: atThisSlot.length };
   }
 
   const name = tour.name || "Guest";
@@ -302,7 +423,23 @@ export async function createTourEvent(tour) {
       },
     },
   });
-  return { configured: true, created: true, id: created.id, htmlLink: created.htmlLink };
+
+  // Staff visibility on the office calendar. Awaited so the result can be
+  // reported, but a failure here never fails the tour — see the helper.
+  const mirror = await mirrorTourToOfficeCalendar({
+    date,
+    time,
+    summary: `Tour — ${name}`,
+    description,
+  });
+
+  return {
+    configured: true,
+    created: true,
+    id: created.id,
+    htmlLink: created.htmlLink,
+    mirroredToOffice: mirror.mirrored,
+  };
 }
 
 /** Pull "Email:" / "Phone:" style lines back out of an event description. */
