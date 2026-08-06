@@ -71,13 +71,15 @@ export const VENUE: { src: string; alt: string; span?: string }[] = [
   { src: "/manus-storage/DSC00322-HDR.jpg", alt: "Bar and serving area" },
   { src: "/manus-storage/DSC00352-HDR.jpg", alt: "The pavilion — main event space", span: "lg:col-span-2" },
   { src: "/manus-storage/DSC00277-HDR.jpg", alt: "Walkway to the pavilion" },
-  { src: "/manus-storage/DSC00327-HDR.jpg", alt: "Pavilion seating view" },
   { src: "/manus-storage/DSC00223-HDR.jpg", alt: "Venue grounds" },
   { src: "/manus-storage/DSC00237-HDR.jpg", alt: "Covered deck and lighting" },
   { src: "/manus-storage/DSC00252-HDR.jpg", alt: "Outdoor event center" },
   { src: "/manus-storage/DSC00262-HDR.jpg", alt: "Pavilion from the lawn", span: "lg:col-span-2" },
   { src: "/manus-storage/DSC00267-HDR.jpg", alt: "String-lit gathering space" },
-  { src: "/manus-storage/DSC00299-HDR.jpg", alt: "Deck seating area" },
+  // Pavilion seating sits directly beside the string-lit shot at the owner's
+  // request; the deck-seating photo that used to hold this slot was dropped.
+  // DSC00327 is still the page hero (PAGE_HERO_IMAGE), so the file stays put.
+  { src: "/manus-storage/DSC00327-HDR.jpg", alt: "Pavilion seating view" },
   { src: "/manus-storage/DSC00332-HDR.jpg", alt: "Venue detail" },
   { src: "/manus-storage/DSC00337-HDR.jpg", alt: "Event-ready floor space" },
   { src: "/manus-storage/DSC00342-HDR.jpg", alt: "Evening ambience at the pavilion" },
