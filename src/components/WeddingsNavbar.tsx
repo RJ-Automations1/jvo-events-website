@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { EVENTS_SITE_URL } from "@/lib/siteMode";
 
 /**
  * Navigation for the standalone JVO Weddings site (VITE_SITE_MODE=weddings).
  * Deliberately wedding-only — no Pricing/Gallery/Testimonials from the events
- * site — so this deployment reads as its own website.
+ * site — so this deployment reads as its own website. The one exception is the
+ * gold "Events" link after Contact, mirroring the gold "Weddings" link the
+ * events site uses to send visitors here.
  */
 const GOLD = "#c9a96a";
 
@@ -79,6 +82,24 @@ export default function WeddingsNavbar() {
             >
               Contact
             </Link>
+
+            {/* Events — the way back to the main JVO Events site */}
+            <a href={EVENTS_SITE_URL} className="flex items-baseline gap-1 group">
+              <span
+                className="text-xs font-bold tracking-[0.18em] uppercase transition-colors"
+                style={{ fontFamily: "'Lato', sans-serif", color: GOLD }}
+              >
+                Events
+              </span>
+              <span
+                className="text-xs transition-transform group-hover:translate-x-0.5"
+                style={{ color: GOLD, opacity: 0.7 }}
+                aria-hidden="true"
+              >
+                ↗
+              </span>
+            </a>
+
             <Link to="/tour" className="btn-outline" style={{ padding: "0.7rem 1.6rem" }}>
               Book a Tour
             </Link>
@@ -138,6 +159,20 @@ export default function WeddingsNavbar() {
           >
             Contact
           </Link>
+
+          {/* Events — the way back to the main JVO Events site */}
+          <a href={EVENTS_SITE_URL} className="flex items-center gap-1.5">
+            <span
+              className="text-sm font-bold tracking-[0.15em] uppercase"
+              style={{ fontFamily: "'Lato', sans-serif", color: GOLD }}
+            >
+              Events
+            </span>
+            <span className="text-sm" style={{ color: GOLD, opacity: 0.7 }} aria-hidden="true">
+              ↗
+            </span>
+          </a>
+
           <Link to="/tour" className="btn-outline text-center mt-1">
             Book a Tour
           </Link>
