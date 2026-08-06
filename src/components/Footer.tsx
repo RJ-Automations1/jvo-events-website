@@ -1,11 +1,8 @@
 import { Link } from "react-router-dom";
 import { LOGO } from "@/lib/media";
-import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
+import { EVENTS_SITE_URL, IS_WEDDINGS_SITE } from "@/lib/siteMode";
 
 const year = new Date().getFullYear();
-
-/** Where visitors can reach the main events site from the weddings deployment. */
-const EVENTS_SITE_URL = import.meta.env.VITE_EVENTS_URL || "https://www.jvoevents.com";
 
 export default function Footer() {
   if (IS_WEDDINGS_SITE) return <WeddingsFooter />;
