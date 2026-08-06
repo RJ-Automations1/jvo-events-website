@@ -100,6 +100,7 @@ export const GALLERY: { src: string; alt: string; span?: string }[] = [
   { src: "/manus-storage/people-food.jpg", alt: "Food and catering" },
   { src: "/manus-storage/DSC00304-HDR.jpg", alt: "Open-air covered pavilion" },
   { src: "/manus-storage/people-games.jpg", alt: "Friends gathered around the table", span: "lg:col-span-2" },
-  { src: "/manus-storage/DSC00342-HDR.jpg", alt: "Bar seating along the windows" },
+  // The deck-seating shot (DSC00342) was pulled from the gallery at the owner's
+  // request; the file stays put because it's still the Book Now page hero.
   { src: "/manus-storage/DSC00223-HDR.jpg", alt: "The grounds" },
 ];

@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Lightbox from "@/components/Lightbox";
 import { useReveal } from "@/lib/useReveal";
 import { GALLERY as photos, REELS as reels, PAGE_HERO_IMAGE } from "@/lib/media";
 
 export default function Gallery() {
   useReveal();
+  /** Index of the photo showing full-screen, or null when the viewer is closed. */
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh" }}>
@@ -46,10 +50,18 @@ export default function Gallery() {
               </h2>
               <div className="columns-2 gap-3" style={{ columnGap: "0.75rem" }}>
                 {photos.map((p, i) => (
-                  <div
+                  <button
                     key={i}
-                    className="reveal group relative overflow-hidden mb-3"
-                    style={{ border: "1px solid rgba(255,255,255,0.07)", background: "#111", breakInside: "avoid" }}
+                    type="button"
+                    onClick={() => setLightboxIndex(i)}
+                    aria-label={`View ${p.alt} full screen`}
+                    className="reveal group relative overflow-hidden mb-3 block w-full p-0"
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.07)",
+                      background: "#111",
+                      breakInside: "avoid",
+                      cursor: "zoom-in",
+                    }}
                   >
                     <img
                       src={p.src}
@@ -64,11 +76,11 @@ export default function Gallery() {
                       className="absolute inset-0 flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.6))" }}
                     >
-                      <span className="text-white/80 text-[0.65rem] tracking-wide uppercase" style={{ fontFamily: "'Lato', sans-serif" }}>
+                      <span className="text-white/80 text-[0.65rem] tracking-wide uppercase text-left" style={{ fontFamily: "'Lato', sans-serif" }}>
                         {p.alt}
                       </span>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -114,6 +126,13 @@ export default function Gallery() {
           </div>
         </div>
       </section>
+
+      <Lightbox
+        items={photos}
+        index={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+        onIndexChange={setLightboxIndex}
+      />
 
       <Footer />
     </div>
