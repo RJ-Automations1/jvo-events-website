@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AvailabilityCalendar, { prettyDate, toYmd } from "@/components/AvailabilityCalendar";
+import DepositNotice from "@/components/DepositNotice";
+import { DEPOSIT, depositLabel } from "@/lib/deposit";
 import { useReveal } from "@/lib/useReveal";
 import { VIDEO, VIDEO_POSTER } from "@/lib/media";
 
@@ -424,9 +426,31 @@ function EstimateCalculator({
             </span>
           </div>
 
+          {/* How the total is actually paid — the deposit comes off it, it
+              doesn't sit on top of it, which is the thing couples ask about. */}
+          <div className="mt-5 space-y-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-white/60 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Deposit due today
+              </span>
+              <span className="text-[#c9a96a] font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>
+                {depositLabel}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-white/60 text-sm" style={{ fontFamily: "'Lato', sans-serif" }}>
+                Balance, due {DEPOSIT.balanceDueDays} days before
+              </span>
+              <span className="text-white/70 font-bold shrink-0" style={{ fontFamily: "'Lato', sans-serif" }}>
+                {fmtUSD(Math.max(0, total - DEPOSIT.amount))}
+              </span>
+            </div>
+          </div>
+
           <p className="text-white/40 text-xs leading-relaxed mt-4" style={{ fontFamily: "'Lato', sans-serif" }}>
-            Estimate only. Custom-quote enhancements and preferred-vendor services are priced
-            separately.
+            The {depositLabel} deposit is non-refundable and is deducted from your total — it's
+            not an extra charge. Estimate only; custom-quote enhancements and preferred-vendor
+            services are priced separately.
           </p>
 
           <a href="#reserve" className="btn-white w-full text-center mt-6 inline-block">
@@ -491,6 +515,27 @@ function ReserveForm({
     return () => {
       document.body.removeChild(script);
     };
+  }, []);
+
+  // The inquiry alone doesn't hold the date — the deposit does. As soon as
+  // JotForm reports a completed submission, hand the couple to Cheddar Up to
+  // pay it, matching the /book page. (JotForm signals completion either as a
+  // string or as an object with `.action`.)
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin && !/jotform\.com/.test(e.origin)) return;
+      const looksComplete = (s: unknown): boolean =>
+        typeof s === "string" && /submission-(completed|end)|thank[\s-]?you/i.test(s);
+      const action =
+        e.data && typeof e.data === "object"
+          ? (e.data as { action?: unknown }).action
+          : undefined;
+      if (looksComplete(action) || looksComplete(e.data)) {
+        window.location.href = DEPOSIT.url;
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, []);
 
   return (
@@ -932,6 +977,12 @@ export default function Weddings() {
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Deposit terms — said plainly before the form, since the deposit is
+              non-refundable and paying it is what actually holds the date. */}
+          <div className="reveal mt-8">
+            <DepositNotice />
           </div>
 
           {/* Step 2 — the reservation form, unlocked by the date above */}
