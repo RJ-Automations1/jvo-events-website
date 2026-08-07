@@ -3,6 +3,7 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import AvailabilityCalendar from "@/components/AvailabilityCalendar";
 import { useReveal } from "@/lib/useReveal";
 import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
 import {
@@ -80,6 +81,21 @@ function jotformSrcFor(date: Date, startTime: string, jotformValue?: string): st
   return `${JOTFORM_SRC}?${params.toString()}`;
 }
 
+/**
+ * The weddings equivalent — a wedding takes the whole day, so there's no start
+ * time or package to carry over, just the date the couple picked on the
+ * availability calendar. Same q102 field as the events form.
+ */
+function weddingFormSrc(date: Date): string {
+  const [year, month, day] = toYmd(date).split("-");
+  const params = new URLSearchParams({
+    "requestedEvent[month]": month,
+    "requestedEvent[day]": day,
+    "requestedEvent[year]": year,
+  });
+  return `${JOTFORM_SRC}?${params.toString()}`;
+}
+
 const labelStyle: CSSProperties = {
   display: "block",
   color: "rgba(255,255,255,0.55)",
@@ -131,6 +147,23 @@ export default function BookingPage() {
   const [startTime, setStartTime] = useState<string>("");
   /** Set when the slot the guest had chosen gets taken out from under them. */
   const [lostSlot, setLostSlot] = useState(false);
+
+  // Weddings book the whole day, so they skip the package/start-time steps
+  // entirely: pick an available date, then fill in the form. The slot machinery
+  // above is events-only.
+  const [weddingDate, setWeddingDate] = useState<Date | undefined>(undefined);
+  const weddingFormRef = useRef<HTMLParagraphElement>(null);
+
+  // Bring the form into view once a date unlocks it, so the next step is never
+  // left below the fold on a phone.
+  useEffect(() => {
+    if (!weddingDate) return;
+    const id = window.setTimeout(
+      () => weddingFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      120
+    );
+    return () => window.clearTimeout(id);
+  }, [weddingDate]);
 
   const today = useMemo(() => {
     const d = new Date();
@@ -198,7 +231,7 @@ export default function BookingPage() {
 
   // The registration panel only mounts once a slot is picked, so re-observe the
   // `.reveal` elements whenever the selection changes or they'd stay invisible.
-  useReveal([selectedYmd, packageId, startTime]);
+  useReveal([selectedYmd, packageId, startTime, weddingDate]);
 
   // If a refresh reveals the start time they picked is no longer offerable —
   // booked by someone else, or simply now in the past — drop it and say so.
@@ -244,8 +277,11 @@ export default function BookingPage() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  const formSrc =
-    !IS_WEDDINGS_SITE && date && startTime
+  const formSrc = IS_WEDDINGS_SITE
+    ? weddingDate
+      ? weddingFormSrc(weddingDate)
+      : JOTFORM_SRC
+    : date && startTime
       ? jotformSrcFor(date, startTime, pkg?.jotformValue)
       : JOTFORM_SRC;
 
@@ -296,13 +332,58 @@ export default function BookingPage() {
             <div className="accent-divider mx-auto mt-5" />
             <p className="text-white/50 text-base leading-relaxed mt-6 max-w-xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
               {IS_WEDDINGS_SITE
-                ? "Tell us about your special day in the quick form below — no account needed. We'll be in touch to create a personalized experience."
+                ? "Start by choosing an available date on the calendar — then tell us about your special day and we'll be in touch to create a personalized experience."
                 : `Pick your date, how long you need the space, and a start time — the calendar is live, so anything you can select is genuinely available. We're open ${label12(OPEN_TIME)} to ${label12(CLOSE_TIME)} every day.`}
             </p>
           </div>
 
-          {/* Steps 1–3 — live calendar. Events site only; the weddings form is
-              an inquiry, not a dated reservation. */}
+          {/* Step 1, weddings — the whole day is the booking, so the only
+              choice is the date. Blocked dates come from the same calendar. */}
+          {IS_WEDDINGS_SITE && (
+            <div className="reveal mb-8" style={panelStyle}>
+              <StepHeading step={1} title="Choose your wedding date" />
+
+              <AvailabilityCalendar selected={weddingDate} onSelect={setWeddingDate} />
+
+              {weddingDate && (
+                <div
+                  className="flex flex-wrap items-center justify-between gap-3 mt-7 px-5 py-4"
+                  style={{
+                    border: "1px solid rgba(201,169,106,0.45)",
+                    background: "rgba(201,169,106,0.08)",
+                    fontFamily: "'Lato', sans-serif",
+                  }}
+                >
+                  <span className="text-white text-sm">
+                    <span className="text-[#c9a96a]">✓</span> Your date:{" "}
+                    <strong>{prettyDate(weddingDate)}</strong>
+                  </span>
+                  <button type="button" className="btn-outline" onClick={() => setWeddingDate(undefined)}>
+                    Change
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2, weddings — the form, unlocked by the date above. */}
+          {IS_WEDDINGS_SITE && (
+            <div className="reveal mb-6" style={panelStyle}>
+              <StepHeading step={2} title="Tell us about your day" />
+              <p
+                ref={weddingFormRef}
+                className="text-white/40 text-sm"
+                style={{ fontFamily: "'Lato', sans-serif", scrollMarginTop: "90px" }}
+              >
+                {weddingDate
+                  ? "Your date is filled in below — just add your details."
+                  : "Choose an available date above and the registration form will open here, with your date already filled in."}
+              </p>
+            </div>
+          )}
+
+          {/* Steps 1–3 — live calendar. Events site only; weddings pick a date
+              above and skip the package/start-time steps entirely. */}
           {!IS_WEDDINGS_SITE && (
             <div className="reveal mb-8" style={panelStyle}>
               <StepHeading step={1} title="Choose your date" />
@@ -573,7 +654,7 @@ export default function BookingPage() {
             </div>
           )}
 
-          {(IS_WEDDINGS_SITE || ready) && (
+          {(IS_WEDDINGS_SITE ? Boolean(weddingDate) : ready) && (
             <div
               className="reveal"
               style={{ background: "#fff", borderRadius: "0.25rem", overflow: "hidden", border: "1px solid rgba(255,255,255,0.10)" }}
