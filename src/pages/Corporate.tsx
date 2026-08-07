@@ -5,12 +5,14 @@ import Footer from "@/components/Footer";
 import { useReveal } from "@/lib/useReveal";
 import { useUnmuteOnInteraction } from "@/lib/useUnmuteOnInteraction";
 import { VIDEO, VIDEO_POSTER } from "@/lib/media";
+import { EVENT_PACKAGES, EXTRA_HOUR_PRICE, formatPrice } from "@shared/eventSlots.js";
 
-/** Core rental packages. */
-const packages = [
-  { label: "Half Day", sub: "5 hours", value: "$800" },
-  { label: "Full Day", sub: "10 hours", value: "$1,300" },
-];
+/** Core rental packages — driven off the same config the Book page books from. */
+const packages = EVENT_PACKAGES.map((p) => ({
+  label: p.name,
+  sub: `${p.baseHours} hours`,
+  value: formatPrice(p.basePrice),
+}));
 
 /** House rules — transcribed from the venue's posted Event Rules & Conditions sign. */
 const rules = [
@@ -88,15 +90,16 @@ export default function Corporate() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="max-w-2xl">
             <p className="text-white/55 text-xs sm:text-sm tracking-[0.3em] uppercase mb-4" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Half Day · Full Day · Add-Ons
+              Hourly · Half Day · Full Day · Add-Ons
             </p>
             <h1 className="text-white text-5xl sm:text-6xl font-bold leading-[1.05]" style={{ fontFamily: "'Playfair Display', serif" }}>
               Pricing
             </h1>
             <div className="accent-divider mt-6" />
             <p className="text-white/70 text-base sm:text-lg leading-relaxed mt-6 max-w-xl" style={{ fontFamily: "'Lato', sans-serif" }}>
-              Reserve a half or full day at JVO. A refundable security deposit secures your
-              date — and you can add weather insurance for extra peace of mind.
+              Book by the hour, the half day or the full day at JVO — and add extra hours to any
+              of them for {formatPrice(EXTRA_HOUR_PRICE)} each. A refundable security deposit
+              secures your date, and you can add weather insurance for extra peace of mind.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-9">
               <Link to="/book" className="btn-white">
@@ -157,7 +160,7 @@ export default function Corporate() {
             <div className="accent-divider mt-4" />
             <p className="text-white/55 text-sm sm:text-base leading-relaxed mt-5" style={{ fontFamily: "'Lato', sans-serif" }}>
               The $150 security deposit is separate and <span className="text-white/80 font-semibold">not included</span> in the
-              Half Day ($800) or Full Day ($1,300) rate. It's due at the time of booking to reserve your date,
+              Hourly, Half Day or Full Day rate. It's due at the time of booking to reserve your date,
               and is fully refunded to you after your event as long as the space is returned clean with no damage
               to the property. If you cancel your event within <span className="text-white/80 font-semibold">30 days</span> of
               the event date, the deposit is <span className="text-white/80 font-semibold">forfeited</span>.

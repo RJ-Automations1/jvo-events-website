@@ -7,8 +7,26 @@ import { fileURLToPath } from "node:url";
 import { JVO_SYSTEM_PROMPT } from "./server/jvoKnowledge.js";
 import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
-import { getBookedDates, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
+import { getBookedDates, getBusyByDate, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
+import {
+  EVENT_WEEKDAYS,
+  EVENT_PACKAGES,
+  OPEN_TIME,
+  CLOSE_TIME,
+  SLOT_STEP_MIN,
+  isEventDay,
+  packageById,
+  hoursFor,
+  clampExtraHours,
+  priceFor,
+  endTimeFor,
+  isFree,
+  withinHours,
+  dayIsFull,
+  minutesOf,
+  label12,
+} from "./shared/eventSlots.js";
 import { sendBookingConfirmation, sendBookingNotification, sendTourConfirmation, sendTourNotification, sendInquiryNotification } from "./server/email.js";
 import { runPaymentReminderSweep } from "./server/paymentReminders.js";
 import { getDb } from "./server/db.js";
@@ -167,6 +185,157 @@ app.get("/api/availability", async (req, res) => {
   }
 });
 
+// --- Event availability: which Fri/Sat/Sun blocks are still open ---------
+// Backs the live calendar on the Book Now page. Separate from /api/availability
+// (which answers the coarser "is this whole date taken?") because the Book Now
+// picker needs slot-level detail, and it polls while the guest is choosing — so
+// the TTL here is a minute rather than five.
+const eventAvailabilityCache = new Map();
+const EVENT_AVAIL_TTL_MS = 60 * 1000;
+
+/** Today → the 1st of the month 13 months out, as YYYY-MM-DD. */
+function defaultEventWindow() {
+  const today = new Date();
+  return {
+    from: today.toISOString().slice(0, 10),
+    to: new Date(today.getFullYear() + 1, today.getMonth() + 1, 1).toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * Collapse overlapping/touching busy ranges into the fewest that cover the same
+ * time, so a day with five stacked calendar entries ships as one or two ranges.
+ */
+function mergeIntervals(intervals) {
+  const sorted = [...intervals].sort((a, b) => a.start.localeCompare(b.start));
+  const out = [];
+  for (const iv of sorted) {
+    const last = out[out.length - 1];
+    if (last && iv.start <= last.end) {
+      if (iv.end > last.end) last.end = iv.end;
+    } else {
+      out.push({ ...iv });
+    }
+  }
+  return out;
+}
+
+/**
+ * Merge Google Calendar busy times with Deskworks' booked dates into a
+ * per-date view of when the space is already spoken for.
+ *
+ * Returns `days` keyed by YYYY-MM-DD holding only the dates with something
+ * taken — the picker treats every other event day as fully open, so the payload
+ * stays tiny across a 13-month window.
+ */
+async function loadEventAvailability(from, to, { force = false } = {}) {
+  const cacheKey = `${from}|${to}`;
+  const cached = eventAvailabilityCache.get(cacheKey);
+  if (!force && cached && Date.now() - cached.at < EVENT_AVAIL_TTL_MS) {
+    return cached.payload;
+  }
+
+  const [gcal, dw] = await Promise.allSettled([
+    getBusyByDate(from, to),
+    getDeskworksBookedDates(from, to),
+  ]);
+
+  /** @type {Record<string, Array<{start:string,end:string}>>} */
+  const busy = {};
+  if (gcal.status === "fulfilled") {
+    for (const [ymd, intervals] of Object.entries(gcal.value.busy)) {
+      busy[ymd] = [...intervals];
+    }
+  } else {
+    console.error("[event-availability] google calendar failed:", gcal.reason?.message);
+  }
+  if (dw.status === "fulfilled") {
+    // Deskworks only reports whole dates — treat one as the entire day.
+    for (const ymd of dw.value.bookedDates) {
+      (busy[ymd] ||= []).push({ start: "00:00", end: "24:00" });
+    }
+  } else {
+    console.error("[event-availability] deskworks failed:", dw.reason?.message);
+  }
+
+  // Hand the raw busy ranges to the picker: start times are chosen freely now,
+  // so the page works out which ones still fit for the length the guest wants.
+  const days = {};
+  for (const [ymd, intervals] of Object.entries(busy)) {
+    if (!isEventDay(ymd)) continue;
+    const merged = mergeIntervals(intervals);
+    days[ymd] = { busy: merged, closed: dayIsFull(merged) };
+  }
+
+  const payload = {
+    ok: true,
+    configured:
+      (gcal.status === "fulfilled" && gcal.value.configured) ||
+      (dw.status === "fulfilled" && dw.value.configured),
+    sources: {
+      googleCalendar: gcal.status === "fulfilled" && gcal.value.configured,
+      deskworks: dw.status === "fulfilled" && dw.value.configured,
+    },
+    weekdays: EVENT_WEEKDAYS,
+    open: OPEN_TIME,
+    close: CLOSE_TIME,
+    stepMinutes: SLOT_STEP_MIN,
+    packages: EVENT_PACKAGES,
+    days,
+    from,
+    to,
+    generatedAt: new Date().toISOString(),
+  };
+  eventAvailabilityCache.set(cacheKey, { at: Date.now(), payload });
+  return payload;
+}
+
+/**
+ * Live check of a single slot, used by the booking guards. Always bypasses the
+ * cache — the moment we're about to write a hold is exactly when a stale read
+ * would cost us a double booking.
+ */
+async function checkSlot(ymd, startTime, hours) {
+  const nextDay = new Date(new Date(`${ymd}T00:00:00Z`).getTime() + 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const { configured, days } = await loadEventAvailability(ymd, nextDay, { force: true });
+  const busy = days[ymd]?.busy || [];
+  // Without a specific window to check, fall back to "is there any room left".
+  const taken =
+    startTime && hours ? !isFree(startTime, hours, busy) : Boolean(days[ymd]?.closed);
+  return { configured, taken };
+}
+
+app.get("/api/event-availability", async (req, res) => {
+  const fallbackWindow = defaultEventWindow();
+  try {
+    const ymd = /^\d{4}-\d{2}-\d{2}$/;
+    const from = ymd.test(String(req.query.from)) ? String(req.query.from) : fallbackWindow.from;
+    const to = ymd.test(String(req.query.to)) ? String(req.query.to) : fallbackWindow.to;
+    const payload = await loadEventAvailability(from, to);
+    // The picker polls this; never let a proxy hand back a stale copy.
+    res.set("Cache-Control", "no-store");
+    return res.json(payload);
+  } catch (err) {
+    console.error("[/api/event-availability] failed:", err);
+    // Fail open, but say so — the page tells the guest we'll confirm the date
+    // by hand rather than silently pretending the whole calendar is free.
+    return res.json({
+      ok: true,
+      configured: false,
+      sources: { googleCalendar: false, deskworks: false },
+      weekdays: EVENT_WEEKDAYS,
+      open: OPEN_TIME,
+      close: CLOSE_TIME,
+      stepMinutes: SLOT_STEP_MIN,
+      packages: EVENT_PACKAGES,
+      days: {},
+      error: "unavailable",
+    });
+  }
+});
+
 /** Booking endpoint — validates input then hands off to the Deskworks adapter. */
 app.post("/api/book", async (req, res) => {
   const b = req.body || {};
@@ -183,16 +352,55 @@ app.post("/api/book", async (req, res) => {
     return res.status(400).json({ error: "Please provide a valid email address." });
   }
 
-  // Reject dates already taken on the calendar (only when calendar is configured).
-  const eventDate = String(b.eventDate).trim();
+  const eventDate = String(b.eventDate).trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+    return res.status(400).json({ error: "Please choose a valid event date." });
+  }
+  if (eventDate < new Date().toISOString().slice(0, 10)) {
+    return res.status(400).json({ error: "Please choose a future date for your event." });
+  }
+  if (!isEventDay(eventDate)) {
+    return res.status(400).json({ error: "We don't take events on that day." });
+  }
+
+  // The window they're booking: a package (hourly / half day / full day) plus a
+  // start time. Optional for older callers, but validated whenever supplied.
+  const packageId = b.packageId ? String(b.packageId).trim() : "";
+  const pkg = packageId ? packageById(packageId) : undefined;
+  if (packageId && !pkg) {
+    return res.status(400).json({ error: "Please choose one of the available rental options." });
+  }
+  const startTime = b.startTime ? String(b.startTime).trim() : "";
+  if (startTime && !/^\d{2}:\d{2}$/.test(startTime)) {
+    return res.status(400).json({ error: "Please choose a valid start time." });
+  }
+
+  let hours = 0;
+  let endTime = "";
+  if (pkg && startTime) {
+    hours = hoursFor(pkg, b.extraHours);
+    endTime = endTimeFor(startTime, hours);
+    // Must start on the half hour, open no earlier than 9:00 and finish by 10:00.
+    if (!withinHours(startTime, hours)) {
+      return res.status(400).json({
+        error: `That time doesn't fit our hours — the space is available ${label12(
+          OPEN_TIME
+        )} to ${label12(CLOSE_TIME)}.`,
+      });
+    }
+    if (minutesOf(startTime) % SLOT_STEP_MIN !== 0) {
+      return res.status(400).json({ error: "Start times are on the half hour." });
+    }
+  }
+
+  // Reject slots already taken on the calendar (only when calendar is configured).
   try {
-    const nextDay = new Date(new Date(eventDate).getTime() + 86400000)
-      .toISOString()
-      .slice(0, 10);
-    const { configured, bookedDates } = await getBookedDates(eventDate, nextDay);
-    if (configured && bookedDates.includes(eventDate)) {
+    const { configured, taken } = await checkSlot(eventDate, startTime, hours);
+    if (configured && taken) {
       return res.status(409).json({
-        error: "That date is already booked. Please choose another available date.",
+        error: startTime
+          ? "That time was just booked. Please choose another available time."
+          : "That date is already booked. Please choose another available date.",
       });
     }
   } catch {
@@ -204,12 +412,22 @@ app.post("/api/book", async (req, res) => {
       name: String(b.name).trim(),
       email: String(b.email).trim(),
       phone: b.phone ? String(b.phone).trim() : "",
-      eventDate: String(b.eventDate).trim(),
+      eventDate,
       eventType: b.eventType ? String(b.eventType).trim() : "",
       package: String(b.package).trim(),
       space: b.space ? String(b.space).trim() : "",
       guestCount: b.guestCount ? String(b.guestCount).trim() : "",
       message: b.message ? String(b.message).trim() : "",
+      ...(pkg && startTime
+        ? {
+            packageId: pkg.id,
+            hours,
+            extraHours: clampExtraHours(pkg, b.extraHours),
+            price: priceFor(pkg, b.extraHours),
+            startTime,
+            endTime,
+          }
+        : {}),
     });
 
     if (!result.deskworks && !result.calendar) {
@@ -439,6 +657,33 @@ function jfText(v) {
   return String(v).trim();
 }
 
+/**
+ * Normalize a JotForm time field to 24-hour "HH:MM". The live form's
+ * "Requested Start Time" posts as {hourSelect, minuteSelect, ampm}; older
+ * exports send a plain "5:00 PM" string.
+ */
+function jfTime(v) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const to24 = (hour, minute, ampm) => {
+    let h = Number(hour);
+    if (!Number.isFinite(h)) return "";
+    const suffix = String(ampm || "").toUpperCase();
+    if (suffix === "PM" && h !== 12) h += 12;
+    if (suffix === "AM" && h === 12) h = 0;
+    if (h < 0 || h > 23) return "";
+    return `${pad(h)}:${pad(Number(minute) || 0)}`;
+  };
+  if (v && typeof v === "object") {
+    const hour = v.hourSelect ?? v.hour ?? v.timeInput;
+    if (hour != null) return to24(hour, v.minuteSelect ?? v.min ?? v.minute, v.ampm);
+    return "";
+  }
+  const s = String(v ?? "").trim();
+  const m = s.match(/^(\d{1,2})[:.](\d{2})\s*([AaPp][Mm])?$/);
+  if (m) return m[3] ? to24(m[1], m[2], m[3]) : `${pad(Number(m[1]))}:${m[2]}`;
+  return "";
+}
+
 /** Normalize a JotForm date field to YYYY-MM-DD. */
 function jfDate(v) {
   if (v && typeof v === "object") {
@@ -464,6 +709,7 @@ const JF_KEYWORDS = {
   email: ["email", "emailaddress"],
   phone: ["phone", "phonenumber", "mobile", "contactnumber"],
   eventDate: ["eventdate", "dateofevent", "eventday", "date"],
+  startTime: ["requestedstart", "starttime", "eventstart", "timeofevent"],
   package: ["package", "eventpackage", "rentalpackage", "selectpackage"],
   space: ["space", "venue", "whichspace", "eventspace", "selectspace", "rentalspace", "whichroom"],
   eventType: ["eventtype", "typeofevent", "typeof", "occasion"],
@@ -482,10 +728,28 @@ const DEFAULT_JF_FIELD_MAP = {
   email: "q4_email4",
   phone: "q6_phoneNumber6",
   eventDate: "q102_requestedEvent",
+  startTime: "q103_requestedStart",
   package: "q17_chooseYour",
   eventType: "q15_youAre15",
   guestCount: "q80_expectedNumber",
 };
+
+/**
+ * Match the JotForm "Rental Package" answer back to one of our packages. The
+ * field posts its own label ("$800 5 hours"), so go by the hour count first and
+ * fall back to the package name.
+ */
+function packageFromJotform(text) {
+  const s = String(text || "").toLowerCase();
+  if (!s) return undefined;
+  const hourCount = s.match(/(\d+)\s*hour/);
+  if (hourCount) {
+    const fixed = EVENT_PACKAGES.find((p) => !p.variable && p.hours === Number(hourCount[1]));
+    if (fixed) return fixed;
+  }
+  if (/hour/.test(s)) return EVENT_PACKAGES.find((p) => p.variable);
+  return EVENT_PACKAGES.find((p) => s.includes(p.name.toLowerCase()));
+}
 
 /** Map a JotForm rawRequest object (+ webhook body) to our booking schema. */
 function mapJotformSubmission(raw, body) {
@@ -494,6 +758,7 @@ function mapJotformSubmission(raw, body) {
     email: "",
     phone: "",
     eventDate: "",
+    startTime: "",
     package: "",
     space: "",
     eventType: "",
@@ -510,10 +775,12 @@ function mapJotformSubmission(raw, body) {
       console.warn("[jotform-hook] JOTFORM_FIELD_MAP is not valid JSON; ignoring.");
     }
   }
+  // Dates and times need their own coercion; everything else is free text.
+  const coerce = (field, val) =>
+    field === "eventDate" ? jfDate(val) : field === "startTime" ? jfTime(val) : jfText(val);
+
   for (const [field, key] of Object.entries(explicit)) {
-    if (raw[key] != null) {
-      out[field] = field === "eventDate" ? jfDate(raw[key]) : jfText(raw[key]);
-    }
+    if (raw[key] != null) out[field] = coerce(field, raw[key]);
   }
 
   for (const [key, val] of Object.entries(raw)) {
@@ -521,7 +788,7 @@ function mapJotformSubmission(raw, body) {
     for (const [field, kws] of Object.entries(JF_KEYWORDS)) {
       if (out[field]) continue;
       if (kws.some((kw) => norm === kw || norm.startsWith(kw) || norm.includes(kw))) {
-        out[field] = field === "eventDate" ? jfDate(val) : jfText(val);
+        out[field] = coerce(field, val);
         break;
       }
     }
@@ -563,10 +830,48 @@ app.post("/api/jotform-hook", upload.none(), async (req, res) => {
       return res.status(200).json({ ok: true, incomplete: true });
     }
 
+    // Work out the window this booking occupies: the form's "Requested Start
+    // Time" plus however long the chosen Rental Package runs. With both we can
+    // drop a TIMED hold that leaves the rest of the day bookable.
+    const pkg = packageFromJotform(booking.package);
+    if (pkg && booking.startTime) {
+      booking.packageId = pkg.id;
+      // The form has no "extra hours" field yet, so a submission is held for the
+      // package's base length. Add that field to the JotForm and map it here to
+      // have added hours reflected on the calendar automatically.
+      booking.hours = hoursFor(pkg, 0);
+      booking.endTime = endTimeFor(booking.startTime, booking.hours);
+    }
+
+    // The picker won't offer a taken slot, but the JotForm's own date/time
+    // fields are still editable — so re-check here. We never drop the booking
+    // (that would lose a paying guest); we flag it loudly instead, and the hold
+    // lands on the calendar prefixed "⚠ CONFLICT" for staff to sort out.
+    try {
+      const { configured, taken } = await checkSlot(
+        booking.eventDate,
+        booking.startTime || "",
+        booking.hours || 0
+      );
+      if (configured && taken) {
+        booking.conflict = true;
+        console.warn(
+          `[jotform-hook] CONFLICT: ${booking.eventDate} ${
+            booking.startTime ? `${booking.startTime}–${booking.endTime}` : "(whole day)"
+          } already taken —`,
+          booking.email
+        );
+      }
+    } catch {
+      // Availability check failing must never stop a submission being recorded.
+    }
+
     const result = await processBooking(booking);
     console.log("[jotform-hook] processed:", {
       submissionId: booking.submissionId,
       eventDate: booking.eventDate,
+      block: booking.blockId || null,
+      conflict: Boolean(booking.conflict),
       deskworks: result.deskworks,
       calendar: result.calendar,
       pipeline: result.pipeline,
