@@ -7,6 +7,9 @@ export default defineConfig({
     resolve: {
         alias: {
             "@": fileURLToPath(new URL("./src", import.meta.url)),
+            // Plain-JS modules the Express API and the front-end both import, so the
+            // booking rules can't drift between the two (see shared/eventSlots.js).
+            "@shared": fileURLToPath(new URL("./shared", import.meta.url)),
         },
     },
     server: {

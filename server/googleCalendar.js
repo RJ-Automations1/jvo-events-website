@@ -125,6 +125,61 @@ export async function getBookedDates(from, to) {
 }
 
 /**
+ * Like getBookedDates(), but keeps the CLOCK TIMES an event occupies instead of
+ * collapsing it to "that whole day is gone". This is what lets a booked Friday
+ * evening leave Saturday morning open, and a booked Saturday morning leave the
+ * Saturday evening block bookable.
+ *
+ * All-day events (and anything spanning more than one date) are reported as
+ * 00:00–24:00 on each date they touch, so they still block everything.
+ *
+ * @param {string} from ISO date (inclusive)
+ * @param {string} to   ISO date (exclusive)
+ * @returns {Promise<{configured:boolean, busy: Record<string, Array<{start:string,end:string}>>}>}
+ *   busy is keyed by YYYY-MM-DD; dates with nothing on them are simply absent.
+ */
+export async function getBusyByDate(from, to) {
+  if (!CALENDAR_ID || !SA_JSON) {
+    return { configured: false, busy: {} };
+  }
+  const calendar = await getCalendarClient();
+  const { data } = await calendar.events.list({
+    calendarId: CALENDAR_ID,
+    timeMin: new Date(from).toISOString(),
+    timeMax: new Date(to).toISOString(),
+    singleEvents: true,
+    orderBy: "startTime",
+    maxResults: 2500,
+  });
+
+  const busy = {};
+  const add = (ymd, start, end) => {
+    (busy[ymd] ||= []).push({ start, end });
+  };
+
+  for (const ev of data.items || []) {
+    if (ev.status === "cancelled") continue;
+    // Free/transparent events (tours, personal reminders) never block the space.
+    if (ev.transparency === "transparent") continue;
+    const dates = datesForEvent(ev);
+    if (!dates.length) continue;
+
+    if (ev.start?.date || dates.length > 1) {
+      // All-day, or a timed event that runs past midnight — take the whole day.
+      for (const d of dates) add(d, "00:00", "24:00");
+      continue;
+    }
+    // Single-day timed event: the local clock window it occupies. Google returns
+    // an offset-stamped timestamp, so characters 11–16 are already local time.
+    const start = ev.start.dateTime.slice(11, 16);
+    const rawEnd = (ev.end?.dateTime || "").slice(11, 16);
+    const end = !rawEnd || rawEnd <= start ? "24:00" : rawEnd;
+    add(dates[0], start, end);
+  }
+  return { configured: true, busy };
+}
+
+/**
  * Create an all-day "hold" event on the booking calendar so the event date is
  * blocked everywhere the site reads availability. All-day sidesteps timezone
  * math, and the `datesForEvent()` reader already treats it as a full-day block.
@@ -171,13 +226,30 @@ export async function createCalendarEvent(booking) {
   const name = booking.name || "Guest";
   const space = booking.space || "Outdoor Event Center";
   const pkg = booking.package ? ` · ${booking.package}` : "";
+
+  // A booking that names its window (the Book Now page always does) becomes a
+  // TIMED hold, so the rest of that day stays bookable — e.g. a Saturday
+  // morning half day leaves the evening block open. Without a window we fall
+  // back to the original all-day hold, which blocks the whole date.
+  const startTime = /^\d{2}:\d{2}$/.test(String(booking.startTime || ""))
+    ? String(booking.startTime)
+    : "";
+  const endTime = /^\d{2}:\d{2}$/.test(String(booking.endTime || ""))
+    ? String(booking.endTime)
+    : "";
+  const timed = Boolean(startTime && endTime && endTime > startTime);
+
   const description = [
     `Space: ${space}`,
+    timed ? `Time: ${startTime}–${endTime}` : null,
     booking.email ? `Email: ${booking.email}` : null,
     booking.phone ? `Phone: ${booking.phone}` : null,
     booking.eventType ? `Event type: ${booking.eventType}` : null,
     booking.guestCount ? `Guests: ${booking.guestCount}` : null,
     booking.message ? `Notes: ${booking.message}` : null,
+    booking.conflict
+      ? "\n⚠ DOUBLE-BOOKING WARNING: this slot already looked taken when the form came in. Confirm with the guest before accepting the deposit."
+      : null,
     "",
     "Created automatically from the JVO website booking form. Deposit pending until paid on Cheddar Up.",
   ]
@@ -188,15 +260,24 @@ export async function createCalendarEvent(booking) {
     calendarId: CALENDAR_ID,
     requestBody: {
       // Lead with the space so it's scannable on a multi-space calendar.
-      summary: `${space} — ${name}${pkg} (deposit pending)`,
+      summary: `${booking.conflict ? "⚠ CONFLICT — " : ""}${space} — ${name}${pkg} (deposit pending)`,
       description,
-      start: { date: eventDate },
-      end: { date: addDays(eventDate, 1) },
+      ...(timed
+        ? {
+            start: { dateTime: `${eventDate}T${startTime}:00`, timeZone: EVENT_TZ },
+            end: { dateTime: `${eventDate}T${endTime}:00`, timeZone: EVENT_TZ },
+          }
+        : {
+            start: { date: eventDate },
+            end: { date: addDays(eventDate, 1) },
+          }),
       transparency: "opaque",
       extendedProperties: {
         private: {
           jvoSource: "website",
           ...(submissionId ? { jotformId: submissionId } : {}),
+          // Which rental option this is (see shared/eventSlots.js).
+          ...(booking.packageId ? { eventPackage: String(booking.packageId) } : {}),
           // Stamp the guest contact so the payment-reminder sweep can find who
           // to email without re-parsing the human-readable description.
           ...(booking.email ? { guestEmail: String(booking.email) } : {}),

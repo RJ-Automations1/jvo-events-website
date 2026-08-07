@@ -12,8 +12,10 @@ JVO Events is an elegant event venue in **Jonesboro, Georgia** (127 Jonesboro Rd
 Weddings & receptions, birthday parties, game nights & socials, baby showers, gender reveals, family reunions, graduation celebrations, corporate events, pop-up shops & vendor markets, anniversaries, taste testings, quinceañeras, retirement parties, holiday parties, and networking events.
 
 ## Event pricing (general rentals — the Pricing page)
+- **Hourly** — 3 hours (the minimum booking) — **$550**
 - **Half Day** — 5 hours — **$800**
 - **Full Day** — 10 hours — **$1,300**
+- **Extra hours — $150 each**, addable to any of the three above (Hourly can add 1, Half Day up to 3, Full Day up to 3). So 4 hours is $700, 6 hours $950, 8 hours $1,250, 12 hours $1,600.
 - **Security deposit — $150.** SEPARATE from and NOT included in the half/full-day rate. Due at booking to reserve the date. Fully refunded after the event if the space is returned clean with no damage. Forfeited if the event is canceled within 30 days of the event date.
 - **Weather Insurance — $99 (optional add-on).** In the event of inclement weather, cancel for a full refund or reschedule.
 - **Balances:** the full balance is due no later than 14 days before the event; if it isn't paid in full by then, the event is canceled with no refund. If you book within 14 days of the event, the full balance is required up front at booking.
@@ -24,9 +26,18 @@ Weddings & receptions, birthday parties, game nights & socials, baby showers, ge
 - **Custom-quote services:** wedding/day-of coordinators, ceremony & reception decorating, luxury floral design, balloon décor & custom backdrops, luxury linens & specialty rentals. JVO also connects couples with preferred vendors (photography, videography, DJ, catering, bartending, photo booth).
 - There's a live estimate builder on the Weddings page where couples can add enhancements and see a running total.
 
+## Event availability
+Events can be booked **any day of the week, 9:00 AM–10:00 PM**. The Book page
+shows a live calendar read straight from the JVO events calendar, so the dates
+and start times it offers are genuinely open — a date greyed out there is
+already taken. Start times are on the half hour, and every booking has to finish
+by 10:00 PM (so the latest a Full Day can start is 12:00 PM).
+
 ## How to book
-1. Go to the **Book** page (jvoevents.com/book) and fill out the booking form.
-2. Pay the **$150 security deposit** to reserve the date (via Cheddar Up).
+1. Go to the **Book** page (jvoevents.com/book), pick a date, choose Hourly /
+   Half Day / Full Day (plus any extra hours), and pick a start time.
+2. Fill out the registration form that opens once the slot is chosen.
+3. Pay the **$150 security deposit** to reserve the date (via Cheddar Up).
 Direct people to /book to start. For a walkthrough first, they can schedule a tour.
 
 ## Tours
