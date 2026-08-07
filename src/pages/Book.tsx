@@ -4,8 +4,10 @@ import "react-day-picker/style.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AvailabilityCalendar from "@/components/AvailabilityCalendar";
+import DepositNotice from "@/components/DepositNotice";
 import { useReveal } from "@/lib/useReveal";
 import { IS_WEDDINGS_SITE } from "@/lib/siteMode";
+import { DEPOSIT, depositLabel } from "@/lib/deposit";
 import {
   EVENT_PACKAGES,
   EXTRA_HOUR_PRICE,
@@ -33,9 +35,6 @@ const EVENTS_JOTFORM_ID = "222155218269153";
 const WEDDINGS_JOTFORM_ID = "261945498570168";
 const JOTFORM_ID = IS_WEDDINGS_SITE ? WEDDINGS_JOTFORM_ID : EVENTS_JOTFORM_ID;
 const JOTFORM_SRC = `https://form.jotform.com/${JOTFORM_ID}`;
-/** After the form is submitted, send the guest here to pay the $150 deposit. */
-const CHEDDARUP_DEPOSIT_URL =
-  "https://my.cheddarup.com/c/jvo-event-security-deposit/items";
 
 /** How often the calendar re-checks Google for newly-booked slots. */
 const AVAILABILITY_POLL_MS = 60 * 1000;
@@ -262,15 +261,15 @@ export default function BookingPage() {
 
       // 2) On a completed submission JotForm posts a "submission-completed" /
       //    "submission-end" signal (as a string, or an object with `.action`).
-      //    Send the guest straight to Cheddar Up to pay the deposit / add weather.
+      //    Send the guest straight to Cheddar Up to pay the deposit — that
+      //    payment, not the form, is what actually holds the date. Each site
+      //    has its own deposit and its own Cheddar Up collection.
       const looksComplete = (s: unknown): boolean =>
         typeof s === "string" && /submission-(completed|end)|thank[\s-]?you/i.test(s);
       const action =
         data && typeof data === "object" ? (data as { action?: unknown }).action : undefined;
-      // Weddings inquiries don't pay the events security deposit — the team
-      // follows up personally, so stay on the JotForm thank-you screen.
-      if (!IS_WEDDINGS_SITE && (looksComplete(action) || looksComplete(data))) {
-        window.location.href = CHEDDARUP_DEPOSIT_URL;
+      if (looksComplete(action) || looksComplete(data)) {
+        window.location.href = DEPOSIT.url;
       }
     };
     window.addEventListener("message", onMessage);
@@ -332,7 +331,7 @@ export default function BookingPage() {
             <div className="accent-divider mx-auto mt-5" />
             <p className="text-white/50 text-base leading-relaxed mt-6 max-w-xl mx-auto" style={{ fontFamily: "'Lato', sans-serif" }}>
               {IS_WEDDINGS_SITE
-                ? "Start by choosing an available date on the calendar — then tell us about your special day and we'll be in touch to create a personalized experience."
+                ? `Start by choosing an available date on the calendar — then tell us about your special day. When you submit, we'll take you straight to pay your ${depositLabel} deposit, which is what holds your date.`
                 : `Pick your date, how long you need the space, and a start time — the calendar is live, so anything you can select is genuinely available. We're open ${label12(OPEN_TIME)} to ${label12(CLOSE_TIME)} every day.`}
             </p>
           </div>
@@ -363,6 +362,14 @@ export default function BookingPage() {
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Deposit terms — stated before the form, since paying it is what
+              actually holds the date and the money is non-refundable. */}
+          {IS_WEDDINGS_SITE && (
+            <div className="reveal mb-8">
+              <DepositNotice />
             </div>
           )}
 
