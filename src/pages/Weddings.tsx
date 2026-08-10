@@ -27,6 +27,7 @@ const included: { title: string; items: string[] }[] = [
       "125 folding chairs",
       "2 6ft folding tables",
       "2 highboy tables",
+      "Four-pan gas steam table",
       "20 cocktail bar stools",
       "Bluetooth sound system",
       "Wireless microphone",
