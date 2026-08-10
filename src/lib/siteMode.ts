@@ -14,3 +14,11 @@
 export const SITE_MODE = (import.meta.env.VITE_SITE_MODE || "").toLowerCase();
 
 export const IS_WEDDINGS_SITE = SITE_MODE === "weddings";
+
+/**
+ * Where the weddings deployment sends visitors who want the main events site.
+ * Used by the weddings navbar (top-right gold link) and the weddings footer, so
+ * both point at the same place.
+ */
+export const EVENTS_SITE_URL =
+  import.meta.env.VITE_EVENTS_URL || "https://www.jvoevents.com";
