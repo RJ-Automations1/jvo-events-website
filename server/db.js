@@ -122,6 +122,20 @@ function ensureColumns(database) {
     details_changes: "TEXT",
     // How many staff this event needs on the day (staff-scheduling phase).
     staff_needed: "INTEGER DEFAULT 2",
+    // Which site the booking came from — "events" or "weddings". They price and
+    // invoice differently, so a record has to remember which one it is.
+    site: "TEXT",
+    // Stripe invoicing. stripe_invoice_id is what makes invoicing idempotent:
+    // JotForm retries webhooks, so without it a retry bills the customer twice.
+    stripe_invoice_id: "TEXT",
+    stripe_customer_id: "TEXT",
+    /** What we invoiced, in cents — the balance after any deposit credit. */
+    invoice_total_cents: "INTEGER",
+    /** Full booking value before the deposit was credited, in cents. */
+    booking_total_cents: "INTEGER",
+    invoice_sent_at: "TEXT",
+    /** Set when we deliberately did NOT invoice, with the reason. */
+    invoice_skipped_reason: "TEXT",
   };
   for (const [col, type] of Object.entries(wanted)) {
     if (!have.has(col)) {

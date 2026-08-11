@@ -203,11 +203,11 @@ export function createEventRecord(db, b) {
         `INSERT INTO events (
            public_id, status, name, email, phone, event_type, event_date,
            start_time, end_time, guest_count, package, notes, jotform_id,
-           calendar_event_id, verify_token, created_at, updated_at
+           calendar_event_id, verify_token, site, created_at, updated_at
          ) VALUES (
            @public_id, 'awaiting_deposit', @name, @email, @phone, @event_type,
            @event_date, @start_time, @end_time, @guest_count, @package, @notes,
-           @jotform_id, @calendar_event_id, @verify_token, @at, @at
+           @jotform_id, @calendar_event_id, @verify_token, @site, @at, @at
          )`
       )
       .run({
@@ -217,6 +217,8 @@ export function createEventRecord(db, b) {
         phone: b.phone || "",
         event_type: b.eventType || "",
         event_date: String(b.eventDate || "").slice(0, 10),
+        // Which site this came from — events and weddings invoice differently.
+        site: b.site === "weddings" ? "weddings" : "events",
         // The booked window, when the guest picked one on the Book Now page.
         start_time: b.startTime || null,
         end_time: b.endTime || null,

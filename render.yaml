@@ -74,6 +74,24 @@ services:
       # set CHAT_MODEL=claude-haiku-4-5 for a cheaper high-volume FAQ bot.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # ── Stripe invoicing ──────────────────────────────────────────────────
+      # The deposit is still paid on Cheddar Up; Stripe bills the balance.
+      # An invoice is created and emailed automatically the moment a booking
+      # form arrives — events for the full rental price (the $150 deposit is
+      # refundable and separate), weddings for their total minus the $500
+      # deposit (non-refundable, credited to the balance).
+      # SECRET — set in the Render dashboard. Without it no invoice is sent and
+      # the booking still records normally.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      # Days the customer gets to pay once the invoice lands. Default 7.
+      - key: INVOICE_DAYS_UNTIL_DUE
+        value: "7"
+      # The weddings registration form. Point its JotForm webhook at
+      # /api/jotform-hook (same shared token) or weddings bookings never reach
+      # the server and no wedding invoice is ever sent.
+      - key: JOTFORM_WEDDINGS_FORM_ID
+        value: "261945498570168"
       # Sends the nav's "Weddings" link to the standalone JVO Weddings site
       # instead of the in-app /weddings page. Swap in a custom wedding domain
       # when one is mapped. NOTE: VITE_* vars are baked in at BUILD time, so a
@@ -135,3 +153,21 @@ services:
         value: "false"
       - key: ANTHROPIC_API_KEY
         sync: false
+      # ── Stripe invoicing ──────────────────────────────────────────────────
+      # The deposit is still paid on Cheddar Up; Stripe bills the balance.
+      # An invoice is created and emailed automatically the moment a booking
+      # form arrives — events for the full rental price (the $150 deposit is
+      # refundable and separate), weddings for their total minus the $500
+      # deposit (non-refundable, credited to the balance).
+      # SECRET — set in the Render dashboard. Without it no invoice is sent and
+      # the booking still records normally.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      # Days the customer gets to pay once the invoice lands. Default 7.
+      - key: INVOICE_DAYS_UNTIL_DUE
+        value: "7"
+      # The weddings registration form. Point its JotForm webhook at
+      # /api/jotform-hook (same shared token) or weddings bookings never reach
+      # the server and no wedding invoice is ever sent.
+      - key: JOTFORM_WEDDINGS_FORM_ID
+        value: "261945498570168"
