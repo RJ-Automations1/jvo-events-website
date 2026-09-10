@@ -49,10 +49,35 @@ services:
       # are in place. Until then the site runs calendar-only.
       - key: DESKWORKS_WRITE_ENABLED
         value: "false"
-      # JotForm submission webhook → auto-book Deskworks + Google Calendar
+      # JotForm submission webhook → auto-book Deskworks + Google Calendar.
+      # JOTFORM_FORM_ID restricts the hook to one form; leave it unset to accept
+      # every form (a mismatch is logged rather than silently dropped).
       - key: JOTFORM_WEBHOOK_SECRET
         sync: false
       - key: JOTFORM_API_KEY
+        sync: false
+      - key: JOTFORM_FORM_ID
+        sync: false
+      # Stripe invoicing for event balances (server/stripeInvoices.js). Use the
+      # SAME account as the JVO Mail site ("Jonesboro Virtual Office") so all JVO
+      # money lands in one dashboard. Setting this also switches the payment
+      # reminder sweep off the Deskworks stub onto real Stripe invoice status.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      # Signs the /pay/:token balance links emailed to guests. Set this to a long
+      # random string; rotating it invalidates every outstanding pay link at once.
+      - key: PAY_LINK_SECRET
+        sync: false
+      # Stripe Dashboard → Developers → Webhooks, for POST /api/stripe/webhook
+      # (checkout.session.completed). Without it the webhook still works but is
+      # unverified; the return page reconciles either way.
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Cheddar Up collection guests pay their remaining balance through — the
+      # fallback for bookings with no Stripe invoice. Used by the 30-day and
+      # 14-day payment emails; with neither set they omit the "Pay Your Balance"
+      # button and ask the guest to reply instead.
+      - key: CHEDDARUP_BALANCE_URL
         sync: false
       # Booking confirmation email (SMTP). For Gmail, SMTP_PASS must be a
       # 16-char App Password, not the normal account password.
@@ -64,11 +89,58 @@ services:
         sync: false
       - key: MAIL_REPLY_TO
         sync: false
+      # Who at JVO is told about a new booking / tour / inquiry / details change
+      # / staffing shortage. Comma-separated for more than one person; defaults
+      # to MAIL_REPLY_TO alone. Guest-facing mail is unaffected.
+      - key: NOTIFY_TO
+        sync: false
       # 30-day payment reminder sweep. Stays OFF until the Deskworks invoice
       # lookup (server/deskworksPayments.js) is wired up; while off it only
       # logs what it would send. Flip to "true" when ready.
       - key: PAYMENT_REMINDERS_ENABLED
         value: "false"
+      # Registration intake (server/emailIntake.js): reads the JotForm submission
+      # emails out of the JVO inbox over IMAP — using SMTP_USER/SMTP_PASS, no
+      # extra credential — and gives each booking its calendar hold, pipeline
+      # record, invoice (add-ons included) and confirmation email. This is what
+      # replaces the JotForm webhook that has never fired.
+      # While "false" the daily sweep is a dry run that logs and changes nothing.
+      - key: EMAIL_INTAKE_ENABLED
+        value: "false"
+      # Separate switch, deliberately: intake can create holds and records
+      # without also emailing guests a demand for money. "false" leaves invoices
+      # as reviewable drafts in Stripe; "true" finalizes and sends them.
+      - key: EMAIL_INTAKE_SEND_INVOICES
+        value: "false"
+      # Whether the $150 security deposit counts toward the package total. JVO
+      # treats it as a separate refundable deposit, so the full package is owed.
+      - key: DEPOSIT_APPLIED
+        value: "false"
+      # Cheddar Up collection for the $150 security deposit — linked from the
+      # registration-received email so a new guest can pay it immediately.
+      - key: CHEDDARUP_DEPOSIT_URL
+        sync: false
+      # Lets the daily sweep VOID a booking whose balance missed the 14-day
+      # cutoff: cancel it, void the Stripe invoice, release the date and email
+      # the guest. Deliberately separate from PIPELINE_EMAILS_ENABLED — this one
+      # destroys a booking and keeps the $150, so it needs its own decision.
+      # Even when "true", a booking is only voided after its past-due notice has
+      # gone out and the grace period stated in that email has expired.
+      - key: AUTO_VOID_ENABLED
+        value: "false"
+      # Days a past-due guest gets to pay before the void step may act.
+      - key: PAST_DUE_GRACE_DAYS
+        value: "3"
+      # Card surcharge added to every invoice as its own visible line item.
+      # Set to "0" to switch it off. NOTE: it applies to every invoice, because
+      # an invoice is priced when raised and we can't know how they'll pay.
+      - key: CARD_FEE_PERCENT
+        value: "3"
+      # Minimum gap between two bookings, in minutes — turnaround for cleaning
+      # and reset. Applied on both sides of every existing booking, so the slot
+      # immediately before AND after one is unavailable.
+      - key: CLEANING_BUFFER_MIN
+        value: "60"
       # Website chatbot (POST /api/chat). Without this key the widget shows a
       # friendly "email/call us" fallback. Default model is claude-opus-4-8;
       # set CHAT_MODEL=claude-haiku-4-5 for a cheaper high-volume FAQ bot.
@@ -130,6 +202,11 @@ services:
       - key: MAIL_FROM
         sync: false
       - key: MAIL_REPLY_TO
+        sync: false
+      # Who at JVO is told about a new booking / tour / inquiry / details change
+      # / staffing shortage. Comma-separated for more than one person; defaults
+      # to MAIL_REPLY_TO alone. Guest-facing mail is unaffected.
+      - key: NOTIFY_TO
         sync: false
       - key: PAYMENT_REMINDERS_ENABLED
         value: "false"

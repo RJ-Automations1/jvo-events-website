@@ -35,6 +35,15 @@ import { adminRouter } from "./server/admin.js";
 import { verifyRouter } from "./server/verify.js";
 import { staffPortalRouter } from "./server/staffPortal.js";
 import { runPipelineSweep } from "./server/pipelineScheduler.js";
+import { runEmailIntakeSweep } from "./server/emailIntake.js";
+import { getStripe } from "./server/stripeInvoices.js";
+import {
+  getPayableInvoice,
+  createPartialCheckout,
+  creditSessionToInvoice,
+  payLinksConfigured,
+  MIN_PARTIAL_CENTS,
+} from "./server/partialPayments.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -46,6 +55,55 @@ const upload = multer();
 // Which space the booking is for. This site books the Outdoor Event Center; if
 // the form starts collecting a space/venue choice, it carries through instead.
 const DEFAULT_SPACE = process.env.DEFAULT_SPACE || "Outdoor Event Center";
+
+/**
+ * Stripe webhook — MUST be registered before express.json(), because signature
+ * verification needs the raw request body and a JSON parser would consume it.
+ *
+ * Its only job is crediting a completed part-payment to its invoice. The return
+ * page does the same thing (see GET /api/pay/:token/confirm) so a delayed or
+ * lost webhook never leaves a guest having paid against an invoice that still
+ * reads unpaid; creditSessionToInvoice() is idempotent, so both running is fine.
+ */
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET || "";
+    let event;
+    try {
+      const stripe = await getStripe();
+      if (!stripe) return res.status(503).json({ error: "stripe not configured" });
+      if (secret) {
+        event = stripe.webhooks.constructEvent(
+          req.body,
+          req.headers["stripe-signature"],
+          secret
+        );
+      } else {
+        // Unsigned: accept but say so. An unverified webhook is spoofable, and
+        // the only action it triggers is a Stripe-verified lookup by session id.
+        console.warn("[stripe-webhook] STRIPE_WEBHOOK_SECRET not set — skipping verification");
+        event = JSON.parse(req.body.toString("utf8"));
+      }
+    } catch (err) {
+      console.error("[stripe-webhook] signature check failed:", err.message);
+      return res.status(400).json({ error: "bad signature" });
+    }
+
+    if (event.type === "checkout.session.completed") {
+      try {
+        const result = await creditSessionToInvoice(event.data.object.id);
+        console.log("[stripe-webhook] credited session:", JSON.stringify(result));
+      } catch (err) {
+        console.error("[stripe-webhook] credit failed:", err.message);
+        // 500 so Stripe retries — the guest's money is already taken.
+        return res.status(500).json({ error: "credit failed" });
+      }
+    }
+    return res.json({ received: true });
+  }
+);
 
 app.use(express.json());
 
@@ -72,6 +130,65 @@ app.use((req, res, next) => {
 
 /** Basic health check (useful for Render). */
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// --- "Pay any amount" against an event invoice (see server/partialPayments.js) ---
+
+/** What the guest owes right now. Drives the /pay/:token page. */
+app.get("/api/pay/:token", async (req, res) => {
+  if (!payLinksConfigured()) {
+    return res.status(503).json({ error: "payments_not_configured" });
+  }
+  try {
+    const info = await getPayableInvoice(req.params.token);
+    if (!info) return res.status(404).json({ error: "not_found" });
+    return res.json({ ...info, minPartial: MIN_PARTIAL_CENTS });
+  } catch (err) {
+    console.error("[/api/pay] lookup failed:", err.message);
+    return res.status(500).json({ error: "lookup_failed" });
+  }
+});
+
+/**
+ * Start a part-payment. The browser sends the amount the guest typed; the
+ * amount is re-checked against Stripe's own amount_remaining server-side inside
+ * createPartialCheckout — never trust a posted price.
+ */
+app.post("/api/pay/:token/checkout", async (req, res) => {
+  if (!payLinksConfigured()) {
+    return res.status(503).json({ error: "payments_not_configured" });
+  }
+  try {
+    const amountCents = Math.round(Number(req.body?.amountCents));
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const result = await createPartialCheckout(req.params.token, amountCents, { origin });
+    if (!result.ok) {
+      const status = result.error === "not_found" ? 404 : 400;
+      return res.status(status).json({ error: result.error, min: result.min });
+    }
+    return res.json({ url: result.url, amount: result.amount });
+  } catch (err) {
+    console.error("[/api/pay/checkout] failed:", err.message);
+    return res.status(500).json({ error: "checkout_failed" });
+  }
+});
+
+/**
+ * Return-page reconcile. The webhook normally credits the payment, but webhooks
+ * get delayed and lost — and "she paid and the invoice still says unpaid" is the
+ * outcome worth engineering against. Idempotent, so both paths running is fine.
+ */
+app.get("/api/pay/:token/confirm", async (req, res) => {
+  const sessionId = String(req.query.session || "");
+  if (!sessionId) return res.status(400).json({ error: "missing_session" });
+  try {
+    const result = await creditSessionToInvoice(sessionId);
+    const info = await getPayableInvoice(req.params.token);
+    return res.json({ ...result, invoice: info });
+  } catch (err) {
+    console.error("[/api/pay/confirm] failed:", err.message);
+    return res.status(500).json({ error: "confirm_failed" });
+  }
+});
 
 // --- Customer chatbot: answers questions from the JVO capability overview ---
 const CHAT_MODEL = process.env.CHAT_MODEL || "claude-opus-4-8";
@@ -636,7 +753,14 @@ async function processBooking(rawBooking) {
 }
 
 // --- JotForm submission webhook → auto-book Deskworks + Google Calendar ---
-const JOTFORM_FORM_ID = process.env.JOTFORM_FORM_ID || "222155218269153";
+// Which JotForm this hook accepts. Only enforced when JOTFORM_FORM_ID is set
+// explicitly — it used to default to the id below, which meant a submission
+// from any OTHER form (a rebuilt registration form, a duplicated one) was
+// silently dropped with a 200 and never reached the pipeline. Unset now means
+// "accept and log the id", so a mismatch shows up as a booking rather than as
+// silence. 222155218269153 is the form DEFAULT_JF_FIELD_MAP is pinned to.
+const JOTFORM_FORM_ID = process.env.JOTFORM_FORM_ID || "";
+const JOTFORM_PINNED_FORM_ID = "222155218269153";
 const JOTFORM_WEBHOOK_SECRET = process.env.JOTFORM_WEBHOOK_SECRET || "";
 
 /** Coerce a JotForm field value (string or {first,last}/{month,day,year}/…) to text. */
@@ -814,6 +938,16 @@ app.post("/api/jotform-hook", upload.none(), async (req, res) => {
       console.warn(`[jotform-hook] ignoring submission for form ${formId}`);
       return res.status(200).json({ ok: true, ignored: true });
     }
+    // No pin set: process it, but say loudly which form it came from. If this
+    // isn't the pinned id, DEFAULT_JF_FIELD_MAP's qids won't match and parsing
+    // falls back to the keyword heuristic — worth knowing before it misfires.
+    if (!JOTFORM_FORM_ID && formId && String(formId) !== JOTFORM_PINNED_FORM_ID) {
+      console.warn(
+        `[jotform-hook] submission from form ${formId}, but the field map is pinned to ` +
+          `${JOTFORM_PINNED_FORM_ID}. Processing anyway via keyword matching — set ` +
+          `JOTFORM_FIELD_MAP (and JOTFORM_FORM_ID) to parse this form deterministically.`
+      );
+    }
 
     let raw = {};
     if (body.rawRequest) {
@@ -841,6 +975,18 @@ app.post("/api/jotform-hook", upload.none(), async (req, res) => {
       // have added hours reflected on the calendar automatically.
       booking.hours = hoursFor(pkg, 0);
       booking.endTime = endTimeFor(booking.startTime, booking.hours);
+    } else {
+      // Without BOTH a package and a start time the hold below degrades to an
+      // all-day block: it swallows the whole date and loses the time the guest
+      // asked for. That's a mapping failure, not a booking without a time — the
+      // form requires "Requested Start Time" — so say so loudly enough to fix.
+      console.warn(
+        `[jotform-hook] NO TIMED HOLD for ${booking.email || "(no email)"} on ` +
+          `${booking.eventDate}: ${!pkg ? `package "${booking.package}" did not match` : ""}` +
+          `${!pkg && !booking.startTime ? " and " : ""}` +
+          `${!booking.startTime ? `start time missing (raw "${booking.startTime}")` : ""}. ` +
+          `Falling back to an ALL-DAY hold — check JOTFORM_FIELD_MAP.`
+      );
     }
 
     // The picker won't offer a taken slot, but the JotForm's own date/time
@@ -927,25 +1073,61 @@ app.post("/api/cron/pipeline", async (req, res) => {
   }
 });
 
+/**
+ * Registration intake from the JVO inbox — the manual trigger for the sweep the
+ * cron below runs daily. POST /api/cron/intake?token=...&dryRun=1
+ */
+app.post("/api/cron/intake", async (req, res) => {
+  if (CRON_SECRET) {
+    const token = req.query.token || req.headers["x-cron-token"];
+    if (token !== CRON_SECRET) {
+      console.warn("[cron] intake rejected: bad/missing token");
+      return res.status(401).json({ ok: false });
+    }
+  }
+  try {
+    const dryRun = req.query.dryRun === "1" || req.query.dryRun === "true";
+    const summary = await runEmailIntakeSweep({
+      dryRun,
+      limit: Number(req.query.limit) || undefined,
+    });
+    return res.status(200).json({ ok: true, summary });
+  } catch (err) {
+    console.error("[cron] email intake failed:", err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // Daily in-process schedule. Default 9:00am Eastern; override with
-// PAYMENT_REMINDER_CRON (5-field cron) / EVENT_TIMEZONE. Runs both the legacy
-// 30-day payment sweep and the pipeline timeline sweep (45/30/15/14/3-day).
+// PAYMENT_REMINDER_CRON (5-field cron) / EVENT_TIMEZONE. Runs the inbox intake,
+// then the legacy 30-day payment sweep and the pipeline timeline sweep.
 const REMINDER_CRON = process.env.PAYMENT_REMINDER_CRON || "0 9 * * *";
 const REMINDER_TZ = process.env.EVENT_TIMEZONE || "America/New_York";
 if (cron.validate(REMINDER_CRON)) {
   cron.schedule(
     REMINDER_CRON,
     () => {
-      runPaymentReminderSweep().catch((err) =>
-        console.error("[cron] scheduled payment-reminders failed:", err.message)
-      );
-      runPipelineSweep().catch((err) =>
-        console.error("[cron] scheduled pipeline sweep failed:", err.message)
-      );
+      // Order matters: intake FIRST, so a registration that arrived overnight
+      // has a pipeline record before the sweeps run — otherwise a booking made
+      // inside a reminder window waits a full extra day to be chased.
+      runEmailIntakeSweep()
+        .catch((err) => {
+          console.error("[cron] scheduled email intake failed:", err.message);
+        })
+        .finally(() => {
+          runPaymentReminderSweep().catch((err) =>
+            console.error("[cron] scheduled payment-reminders failed:", err.message)
+          );
+          runPipelineSweep().catch((err) =>
+            console.error("[cron] scheduled pipeline sweep failed:", err.message)
+          );
+        });
     },
     { timezone: REMINDER_TZ }
   );
-  console.log(`[cron] payment reminders + pipeline sweep scheduled "${REMINDER_CRON}" (${REMINDER_TZ})`);
+  console.log(
+    `[cron] email intake + payment reminders + pipeline sweep scheduled "${REMINDER_CRON}" (${REMINDER_TZ})`
+  );
 } else {
   console.warn(`[cron] invalid PAYMENT_REMINDER_CRON "${REMINDER_CRON}" — daily sweep disabled`);
 }
