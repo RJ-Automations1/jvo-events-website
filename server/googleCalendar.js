@@ -192,6 +192,72 @@ export async function getBusyByDate(from, to) {
  *   package, eventType, guestCount, message, submissionId? }
  * @returns {Promise<{configured:boolean, created:boolean, duplicate?:boolean, id?:string, htmlLink?:string}>}
  */
+/**
+ * Find an existing website-created hold for this booking, without creating one.
+ *
+ * Same lookup createCalendarEvent() uses to dedup, exposed on its own so callers
+ * can ask "has this registration already been handled?" — the calendar is the
+ * most reliable place to ask, because it holds bookings processed by hand while
+ * the JotForm webhook was dead and the SQLite pipeline stayed empty.
+ *
+ * @param {object} booking - { eventDate, submissionId? }
+ * @returns {Promise<null|{id:string, htmlLink:string, summary:string}>}
+ */
+export async function getCalendarHold(booking) {
+  if (!CALENDAR_ID || !SA_JSON) return null;
+  const eventDate = String(booking.eventDate || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) return null;
+
+  const props = ["jvoSource=website"];
+  if (booking.submissionId) props.push(`jotformId=${booking.submissionId}`);
+  try {
+    const calendar = await getCalendarClient();
+    const { data } = await calendar.events.list({
+      calendarId: CALENDAR_ID,
+      privateExtendedProperty: props,
+      timeMin: new Date(`${eventDate}T00:00:00Z`).toISOString(),
+      timeMax: new Date(`${addDays(eventDate, 2)}T00:00:00Z`).toISOString(),
+      singleEvents: true,
+      maxResults: 5,
+    });
+    const hit = (data.items || []).find((e) => e.status !== "cancelled");
+    return hit ? { id: hit.id, htmlLink: hit.htmlLink, summary: hit.summary } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Release a hold for a booking that's been voided for non-payment.
+ *
+ * Marks it "transparent" (free) rather than deleting it, and retitles it
+ * CANCELLED. That frees the date to be sold again — getBookedDates() and
+ * getBusyByDate() both skip transparent events — while leaving a visible record
+ * on the calendar of what was there and why, which a deletion would destroy.
+ *
+ * @returns {Promise<{ok:boolean, reason?:string, id?:string}>}
+ */
+export async function releaseCalendarHold(booking) {
+  const hold = await getCalendarHold(booking);
+  if (!hold) return { ok: false, reason: "no hold found" };
+  try {
+    const calendar = await getCalendarClient();
+    await calendar.events.patch({
+      calendarId: CALENDAR_ID,
+      eventId: hold.id,
+      requestBody: {
+        summary: hold.summary.startsWith("CANCELLED")
+          ? hold.summary
+          : `CANCELLED (unpaid) — ${hold.summary}`,
+        transparency: "transparent",
+      },
+    });
+    return { ok: true, id: hold.id };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
+
 export async function createCalendarEvent(booking) {
   if (!CALENDAR_ID || !SA_JSON) {
     return { configured: false, created: false };

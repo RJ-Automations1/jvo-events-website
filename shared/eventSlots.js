@@ -29,6 +29,18 @@ export const CLOSE_TIME = "22:00";
 export const SLOT_STEP_MIN = 30;
 
 /**
+ * Minimum gap between two bookings, in minutes — time to clean and reset the
+ * space. Without it a guest could book the slot that starts the exact minute
+ * the previous event ends, and staff would have no turnaround at all.
+ *
+ * Applied as padding on BOTH sides of every busy interval, so it protects the
+ * gap whether the new booking lands before or after an existing one.
+ */
+export const CLEANING_BUFFER_MIN = Number(
+  (typeof process !== "undefined" && process.env?.CLEANING_BUFFER_MIN) || 60
+);
+
+/**
  * What a guest can book. `hours` is fixed for the packages; the hourly option
  * lets them choose anything from minHours to maxHours.
  *
@@ -37,6 +49,52 @@ export const SLOT_STEP_MIN = 30;
  */
 /** Any booking can buy extra hours on top of its package, at this rate each. */
 export const EXTRA_HOUR_PRICE = 150;
+
+/**
+ * Paid add-ons a booking can carry, priced here so the website estimate, the
+ * JotForm, and the Stripe invoice can never quote three different numbers.
+ *
+ * `perUnit: true` means `price` is per item and the booking supplies a quantity
+ * (25 chairs × $2 = $50). Otherwise `price` is the whole line.
+ *
+ * Prices mirror the Weddings page estimate builder (src/pages/Weddings.tsx) and
+ * server/jvoKnowledge.js — change all three together.
+ */
+export const EVENT_ADDONS = [
+  { id: "chairs", label: "Additional Chairs", price: 2, perUnit: true, unit: "chair" },
+  { id: "round-tables", label: "Round Tables", price: 15, perUnit: true, unit: "table" },
+  { id: "rectangle-tables", label: "Rectangle Tables", price: 10, perUnit: true, unit: "table" },
+  { id: "patio-enclosure", label: "Patio Enclosure", price: 200 },
+  { id: "weather-insurance", label: "Weather Insurance", price: 99 },
+  { id: "tent", label: "Premium Tent Package (20×40)", price: 1500 },
+  { id: "floral-wall", label: "Pergola Decor & Luxury Floral Wall", price: 850 },
+  { id: "rehearsal", label: "Wedding Rehearsal (5 hrs)", price: 800 },
+  { id: "officiant", label: "Licensed Wedding Officiant", price: 450 },
+];
+
+/** Look up an add-on by id. */
+export function addonById(id) {
+  return EVENT_ADDONS.find((a) => a.id === id);
+}
+
+/**
+ * Price one add-on line.
+ * @param {string} id   - an EVENT_ADDONS id
+ * @param {number} qty  - how many (ignored for non-perUnit add-ons)
+ * @returns {{id:string,label:string,quantity:number,unitPrice:number,total:number}}
+ */
+export function addonLine(id, qty = 1) {
+  const addon = addonById(id);
+  if (!addon) throw new Error(`addonLine: unknown add-on "${id}"`);
+  const quantity = addon.perUnit ? Math.max(0, Math.floor(qty)) : 1;
+  return {
+    id: addon.id,
+    label: addon.perUnit ? `${addon.label} (${quantity} × $${addon.price})` : addon.label,
+    quantity,
+    unitPrice: addon.price,
+    total: addon.price * quantity,
+  };
+}
 
 /**
  * What a guest can book: a base package, plus up to `maxExtraHours` added on at
@@ -174,23 +232,52 @@ export function withinHours(start, hours) {
  * Would a booking of `hours` starting at `start` fit the opening window AND
  * clear every busy range?
  */
-export function isFree(start, hours, busyIntervals) {
+/**
+ * Widen a busy interval by the cleaning buffer on both sides, so the turnaround
+ * either side of an existing booking reads as unavailable.
+ *
+ * Clamped to the day's own bounds — a 9:00 AM event shouldn't push the busy
+ * window to 8:00 AM and make the maths think the venue opens earlier than it
+ * does. The clamp costs nothing, because nothing is bookable outside those
+ * bounds anyway.
+ */
+function padInterval(iv, bufferMin) {
+  const open = minutesOf(OPEN_TIME);
+  const close = minutesOf(CLOSE_TIME);
+  return {
+    start: hhmmOf(Math.max(open, minutesOf(iv.start) - bufferMin)),
+    end: hhmmOf(Math.min(close, minutesOf(iv.end) + bufferMin)),
+  };
+}
+
+/**
+ * Is this window bookable?
+ *
+ * @param {string} start - "HH:MM"
+ * @param {number} hours
+ * @param {Array<{start:string,end:string}>} busyIntervals
+ * @param {number} [bufferMin=CLEANING_BUFFER_MIN] - turnaround to protect
+ */
+export function isFree(start, hours, busyIntervals, bufferMin = CLEANING_BUFFER_MIN) {
   if (!withinHours(start, hours)) return false;
   const end = endTimeFor(start, hours);
-  return !(busyIntervals || []).some((iv) => intervalsOverlap(start, end, iv.start, iv.end));
+  return !(busyIntervals || []).some((iv) => {
+    const padded = padInterval(iv, bufferMin);
+    return intervalsOverlap(start, end, padded.start, padded.end);
+  });
 }
 
 /**
  * The start times actually offerable for a booking of `hours` on a day whose
  * calendar holds `busyIntervals` (an all-day booking arrives as 00:00–24:00).
  */
-export function freeStartTimes(hours, busyIntervals) {
-  return allStartTimes(hours).filter((s) => isFree(s, hours, busyIntervals));
+export function freeStartTimes(hours, busyIntervals, bufferMin = CLEANING_BUFFER_MIN) {
+  return allStartTimes(hours).filter((s) => isFree(s, hours, busyIntervals, bufferMin));
 }
 
 /** True when not even the shortest bookable stretch fits anywhere that day. */
-export function dayIsFull(busyIntervals) {
-  return freeStartTimes(MIN_BOOKABLE_HOURS, busyIntervals).length === 0;
+export function dayIsFull(busyIntervals, bufferMin = CLEANING_BUFFER_MIN) {
+  return freeStartTimes(MIN_BOOKABLE_HOURS, busyIntervals, bufferMin).length === 0;
 }
 
 /** "17:00" → "5:00 PM" */
