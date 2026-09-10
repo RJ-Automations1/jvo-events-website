@@ -7,9 +7,11 @@
  * refundable.
  *
  * SAFETY: a reminder is only sent when payment status is *positively known to be
- * unpaid*. Until the Deskworks invoice lookup is implemented (see
- * deskworksPayments.js), status is "unknown" and nothing is sent — so this is
- * safe to ship before the Deskworks API key exists. The whole sweep is also
+ * unpaid*. Status comes from Stripe when STRIPE_SECRET_KEY is set (an invoice
+ * raised by server/stripeInvoices.js), otherwise from the Deskworks stub, which
+ * answers "unknown" — and "unknown" never sends. A booking that was never
+ * invoiced also reads as "unknown", so nobody gets chased for a bill that was
+ * never raised. The whole sweep is also
  * gated behind PAYMENT_REMINDERS_ENABLED (default off): while off it runs as a
  * dry run that logs what it *would* send.
  *
@@ -19,8 +21,20 @@
  */
 
 import { getBookingsForDate } from "./googleCalendar.js";
-import { getPaymentStatus } from "./deskworksPayments.js";
+import { getPaymentStatus as getDeskworksPaymentStatus } from "./deskworksPayments.js";
+import { getInvoiceStatus, invoicesConfigured } from "./stripeInvoices.js";
 import { sendPaymentReminder } from "./email.js";
+
+/**
+ * Where "is this paid?" comes from. Stripe is authoritative once a key is set —
+ * balances are invoiced through it (server/stripeInvoices.js). The Deskworks
+ * lookup stays as the fallback for the pre-Stripe path; it's still a stub that
+ * answers "unknown", which this sweep treats as "don't send".
+ */
+async function getPaymentStatus(booking) {
+  if (invoicesConfigured()) return getInvoiceStatus(booking);
+  return getDeskworksPaymentStatus(booking);
+}
 
 const DAYS_OUT = Number(process.env.PAYMENT_REMINDER_DAYS || "30");
 const ENABLED = String(process.env.PAYMENT_REMINDERS_ENABLED || "false") === "true";
