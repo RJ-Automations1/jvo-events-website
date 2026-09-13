@@ -25,7 +25,7 @@
  * code have drifted, and a human needs to decide which is right.
  */
 
-import { EVENT_ADDONS } from "../shared/eventSlots.js";
+import { EVENT_ADDONS, EVENT_PACKAGES } from "../shared/eventSlots.js";
 
 const HOST = process.env.IMAP_HOST || "imap.gmail.com";
 const PORT = Number(process.env.IMAP_PORT || "993");
@@ -113,27 +113,47 @@ function to24h(s) {
  *   knownId:string|null,priceMismatch:boolean}>}
  */
 export function parseAddOns(text) {
+  // JotForm prints one line per selected add-on and a SINGLE combined "Total:"
+  // at the end of the whole list — not one per line:
+  //
+  //   Round Tables (Amount: 15.00 USD, Quantity: 21)
+  //   Additional Chairs (Amount: 2.00 USD, Quantity: 125) Total: $565.00
+  //
+  // So `Total:` must be optional. Requiring it silently dropped every add-on
+  // except the last and pinned the combined total onto that one — which billed
+  // Dori Room $565 for chairs alone and lost 21 round tables entirely.
   const re =
-    /([A-Za-z][A-Za-z0-9 &'/-]*?)\s*\(\s*Amount:\s*([\d.]+)\s*USD\s*,\s*Quantity:\s*(\d+)\s*\)\s*Total:\s*\$?\s*([\d,]+(?:\.\d{2})?)/g;
+    /([A-Za-z][A-Za-z0-9 &'/-]*?)\s*\(\s*Amount:\s*([\d.]+)\s*USD\s*,\s*Quantity:\s*(\d+)\s*\)/g;
   const out = [];
   let m;
   while ((m = re.exec(text)) !== null) {
     const label = m[1].trim();
     const unitPrice = Number(m[2]);
     const quantity = Number(m[3]);
-    const total = Number(m[4].replace(/,/g, ""));
-    const known = EVENT_ADDONS.find(
-      (a) => a.label.toLowerCase() === label.toLowerCase()
-    );
+    const known = EVENT_ADDONS.find((a) => a.label.toLowerCase() === label.toLowerCase());
     out.push({
       label,
       unitPrice,
       quantity,
-      total,
+      // Each line's own total, derived from its amount and quantity. Never the
+      // combined figure — that belongs to the list as a whole.
+      total: Number((unitPrice * quantity).toFixed(2)),
       knownId: known ? known.id : null,
       // The form is what the guest agreed to; flag drift instead of overriding.
       priceMismatch: Boolean(known && known.price !== unitPrice),
     });
+  }
+
+  // Cross-check against the combined total the form printed, if there is one.
+  // A mismatch means this parse disagrees with what the guest was shown, which
+  // is a billing problem — surface it rather than quietly preferring ours.
+  const stated = text.match(/Total:\s*\$?\s*([\d,]+(?:\.\d{2})?)/);
+  if (stated && out.length) {
+    const statedTotal = Number(stated[1].replace(/,/g, ""));
+    const summed = Number(out.reduce((s, a) => s + a.total, 0).toFixed(2));
+    if (Math.abs(statedTotal - summed) > 0.01) {
+      out.statedTotalMismatch = { stated: statedTotal, summed };
+    }
   }
   return out;
 }
@@ -145,7 +165,11 @@ export function parseAddOns(text) {
  */
 export function parseSubmissionEmail(rawSource) {
   const lines = emailToLines(rawSource);
-  const isLabel = (l) => LABELS.includes(l);
+  // The package question also counts as a field boundary even when its exact
+  // wording isn't in LABELS — otherwise its wrapped label lines get swallowed
+  // as VALUES of whatever field precedes it.
+  const isLabel = (l) =>
+    LABELS.includes(l) || /^Choose your Rental Package/i.test(l) || /^Full Day\)$/i.test(l);
 
   /** Values that follow a label, up to the next label. */
   const valuesFor = (label) => {
@@ -162,6 +186,27 @@ export function parseSubmissionEmail(rawSource) {
     const hit = addressLines.find((l) => l.toLowerCase().startsWith(prefix.toLowerCase()));
     return hit ? hit.slice(hit.indexOf(":") + 1).trim() : "";
   };
+
+  /**
+   * The rental-package question, found by prefix rather than exact text.
+   *
+   * Its full label differs between form versions — "( 1/2 Day, or Full Day)"
+   * on one, "( 3 hr, Half Day, or Full Day)" on another — and the longer one
+   * WRAPS onto a second line, so an exact-string lookup matched neither and
+   * returned an empty package. Scan forward from the prefix for the first line
+   * that actually looks like a package value ("$600 3 hours").
+   */
+  const packageValue = (() => {
+    const i = lines.findIndex((l) => /^Choose your Rental Package/i.test(l));
+    if (i < 0) return "";
+    for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+      // Stop at a genuinely different question — but NOT at this label's own
+      // wrapped remainder ("Full Day)"), which sits between it and the value.
+      if (LABELS.includes(lines[j])) break;
+      if (/\$\s*\d|\b\d+\s*hour/i.test(lines[j])) return lines[j];
+    }
+    return "";
+  })();
 
   const addOns = parseAddOns(valuesFor("Add on Options:").join("\n"));
 
@@ -180,7 +225,7 @@ export function parseSubmissionEmail(rawSource) {
     startTime: to24h(first("Requested Start Time")),
     guestCount: Number(first("Expected Number of Guest")) || null,
     vehicleCount: Number(first("Expected Number of Vehicles")) || null,
-    package: first("Choose your Rental Package: ( 1/2 Day, or Full Day)"),
+    package: packageValue,
     tourCompleted: /^yes$/i.test(first("Have you completed an in-person tour of the event space?")),
     outsideVendors: /^yes$/i.test(first("Will you have outside vendors at your event?")),
     submissionId: idMatch ? idMatch[1] : "",
@@ -195,6 +240,33 @@ export function parseSubmissionEmail(rawSource) {
   if (!booking.startTime) {
     // Without a time the calendar hold silently becomes an all-day block.
     booking.warnings.push("no start time parsed — a hold would block the whole day");
+  }
+  if (!booking.package) booking.warnings.push("no rental package parsed");
+  else {
+    // The form label carries its own price ("$600 3 hours"). If that disagrees
+    // with EVENT_PACKAGES, the two have drifted and billing either figure is a
+    // guess — Betty Hagan's form offered $600 for 3 hours where our table says
+    // $550. Surface it; never silently pick one.
+    const shown = booking.package.match(/\$\s*([\d,]+)/);
+    const hrs = booking.package.match(/(\d+)\s*hour/i);
+    const pkg = hrs
+      ? EVENT_PACKAGES.find((p) => p.baseHours === Number(hrs[1]))
+      : undefined;
+    if (shown && pkg) {
+      const shownPrice = Number(shown[1].replace(/,/g, ""));
+      if (shownPrice !== pkg.basePrice) {
+        booking.warnings.push(
+          `package price disagrees: the form shows $${shownPrice} for ${pkg.baseHours}h, ` +
+            `EVENT_PACKAGES says $${pkg.basePrice}`
+        );
+      }
+    }
+  }
+  if (booking.addOns.statedTotalMismatch) {
+    const { stated, summed } = booking.addOns.statedTotalMismatch;
+    booking.warnings.push(
+      `add-on total disagrees with the form: form said $${stated}, lines sum to $${summed}`
+    );
   }
   for (const a of booking.addOns) {
     if (a.priceMismatch) {
