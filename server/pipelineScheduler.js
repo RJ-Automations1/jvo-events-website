@@ -6,21 +6,26 @@
  * timeline emails from the JVO automated booking workflow:
  *
  *   45 days out  courtesy reminder
- *   20 days out  balance reminder (the one heads-up before the deadline)
+ *   21 / 17 / 15 days out  balance reminders (exact days)
  *   15 days out  details-verification request (link to /verify/:token)
- *   14 days out  final-payment-due notice — the contractual cutoff
+ *   14 days out  final-payment-due notice — the contractual cutoff: pay in
+ *                full or the booking is cancelled with no refund
  *                (+ auto booked → awaiting_final_payment)
  *   13–1 days out  PAST DUE notice: balance still owing inside the cutoff, so
  *                the reservation is at risk. Also catches a booking whose
  *                14-day notice never went out.
  *    3 days out  final event reminder to the guest + prep summary to staff
  *
+ * NOTE: day 15 carries both a balance reminder and the details-verification
+ * request, so a guest who owes money gets two emails that day. They serve
+ * different purposes; move verify_15 if that's not wanted.
+ *
  * Unpaid past the 14-day cutoff, the booking is VOIDED — see AUTO_VOID_ENABLED
  * below; that step is off by default because cancelling a real booking is not
  * something a cron should start doing without someone deciding it should.
  *
- * The money kinds (20/14/past-due) all read the live balance from Stripe and
- * are skipped the moment it shows paid in full — nobody is chased for money
+ * The money kinds (21/17/15/14/past-due) all read the live balance from Stripe
+ * and are skipped the moment it shows paid in full — nobody is chased for money
  * they've already sent.
  *
  * Staff scheduling (Step 7 of the workflow) rides the same sweep:
@@ -176,15 +181,16 @@ const KINDS = [
     max: 45,
     send: (ev) => sendCourtesyReminder(ev),
   },
-  // ── Payment reminder: 20 days out ───────────────────────────────────────
-  // A window (not an exact day) so a sweep that doesn't run — server restart,
-  // deploy, outage — doesn't silently lose the only reminder a guest gets
-  // before the 14-day deadline. email_log's UNIQUE(event_id, kind) still means
-  // it goes out at most once. Skipped the moment Stripe shows it paid.
-  {
-    kind: "balance_20",
-    min: 15,
-    max: 20,
+  // ── Payment chase: 21 → 17 → 15 days out ────────────────────────────────
+  // Exact days (min === max), not windows: they sit close enough together that
+  // overlapping windows would let the first one swallow the rest, and the guest
+  // would get a single reminder instead of three. A sweep that doesn't run
+  // loses that day's notice, but the remaining notices — and past_due below —
+  // still catch the booking, so nothing falls through entirely.
+  ...[21, 17, 15].map((day) => ({
+    kind: `balance_${day}`,
+    min: day,
+    max: day,
     skip: skipIfPaid,
     send: async (ev) => {
       const pay = await paymentFor(ev);
@@ -194,10 +200,10 @@ const KINDS = [
         eventDate: ev.event_date,
         balanceDue: pay.balanceDue ?? undefined,
         invoiceUrl: pay.invoiceUrl ?? undefined,
-        daysOut: daysUntil(ev.event_date, todayYmd()),
+        daysOut: day,
       });
     },
-  },
+  })),
   {
     kind: "verify_15",
     min: 4,

@@ -111,11 +111,14 @@ export const EVENT_PACKAGES = [
     id: "hourly",
     name: "Hourly",
     baseHours: 3,
-    basePrice: 550,
+    // $550 here was a placeholder written before the JotForm had a 3-hour
+    // option at all. The form has since gained one priced at $600, and real
+    // guests have been booking at that price — Betty Hagan's 2026-12-12
+    // registration is on record showing "$600 3 hours". The form is what the
+    // customer is shown and agrees to, so the form wins.
+    basePrice: 600,
     maxExtraHours: 1,
-    // No "Hourly" choice exists on the JotForm's Rental Package field yet, so
-    // there's nothing to prefill. Add the option there and set its label here.
-    jotformValue: "",
+    jotformValue: "$600 3 hours",
   },
   {
     id: "half-day",
