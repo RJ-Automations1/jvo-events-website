@@ -356,6 +356,12 @@ export async function runPipelineSweep(opts = {}) {
       }
     }
 
+    // No deposit, no emails. A registration isn't a booking until the Cheddar Up
+    // deposit lands — before that the guest hears nothing from us, reminders
+    // included. (Intake only creates a record once the deposit arrives, so this
+    // mainly guards records made by hand or before the deposit rule existed.)
+    if (ev.status === "awaiting_deposit" && !ev.deposit_paid_at) continue;
+
     for (const k of KINDS) {
       if (daysOut < k.min || daysOut > k.max) continue;
       if (alreadySent.get(ev.id, k.kind)) continue;

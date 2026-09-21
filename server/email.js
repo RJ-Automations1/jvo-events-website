@@ -177,19 +177,31 @@ function buildText(b) {
     b.totalStr ? `Total:    ${b.totalStr}` : "",
   ].filter(Boolean);
 
+  // Sent after the Cheddar Up deposit lands, so normally the deposit is DONE.
+  // depositPaid=false keeps the older ask-for-it wording for a hand-sent email.
+  const depositStep = b.depositPaid
+    ? `1. SECURITY DEPOSIT — $150  ✓ RECEIVED
+   Thank you — your $150 security deposit has been received and your date is
+   reserved. It's a refundable damage deposit, separate from your balance.`
+    : `1. SECURITY DEPOSIT — $150
+   Your $150 security deposit reserves the date.${b.depositUrl ? `\n   Pay it here: ${b.depositUrl}` : ""}
+   This is a refundable damage deposit and is separate from your balance.`;
+
   return `Hi ${b.name},
 
-Thank you — we've received your event registration and your details are confirmed.
+Thank you — ${
+    b.depositPaid
+      ? "we've received your deposit and your date is reserved."
+      : "we've received your event registration and your details are confirmed."
+  }
 
 YOUR EVENT
 Date:     ${b.dateStr}
 ${items.join("\n")}
 
-Your date is being held for you. Here's what happens next.
+${b.depositPaid ? "Your date is reserved." : "Your date is being held for you."} Here's what happens next.
 
-1. SECURITY DEPOSIT — $150
-   Your $150 security deposit reserves the date.${b.depositUrl ? `\n   Pay it here: ${b.depositUrl}` : ""}
-   This is a refundable damage deposit and is separate from your balance.
+${depositStep}
 
 2. YOUR BALANCE
    ${b.totalStr ? `Your balance is ${b.totalStr}.` : "We'll send your invoice separately."} You can pay it all at once, or in as many
@@ -263,9 +275,11 @@ function buildHtml(b) {
 
   const inner = `
 <p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(b.name)},</p>
-<p style="font-size:16px;line-height:1.6;margin:0 0 22px 0;">
-  Thank you — we've received your event registration and your details are
-  <strong>confirmed</strong>. Your date is being held for you.
+<p style="font-size:16px;line-height:1.6;margin:0 0 22px 0;">${
+  b.depositPaid
+    ? "Thank you — we've received your deposit and your date is <strong>reserved</strong>."
+    : "Thank you — we've received your event registration and your details are <strong>confirmed</strong>. Your date is being held for you."
+}
 </p>
 
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border:1px solid #e7d9bf;background:#fbf7ee;margin:0 0 26px 0;">
@@ -288,10 +302,12 @@ function buildHtml(b) {
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
 ${step(
   "1",
-  "Security deposit — $150",
-  `Your $150 security deposit reserves the date. It's a refundable damage deposit, separate from your balance.${
-    b.depositUrl ? `<div style="margin-top:10px;">${button(b.depositUrl, "Pay My $150 Deposit")}</div>` : ""
-  }`
+  b.depositPaid ? "Security deposit — $150 &nbsp;✓ Received" : "Security deposit — $150",
+  b.depositPaid
+    ? "Thank you — your $150 security deposit has been received and your date is reserved. It's a refundable damage deposit, separate from your balance."
+    : `Your $150 security deposit reserves the date. It's a refundable damage deposit, separate from your balance.${
+        b.depositUrl ? `<div style="margin-top:10px;">${button(b.depositUrl, "Pay My $150 Deposit")}</div>` : ""
+      }`
 )}
 ${step(
   "2",
@@ -484,6 +500,8 @@ export async function sendBookingConfirmation(booking) {
     totalStr: Number.isFinite(booking.totalDue) ? money(booking.totalDue) : "",
     depositUrl: DEPOSIT_URL,
     payUrl: booking.payUrl || "",
+    // True when this email was triggered BY the deposit — the normal path now.
+    depositPaid: Boolean(booking.depositPaid),
   };
 
   await t.sendMail({
@@ -1241,6 +1259,77 @@ ${
     from: MAIL_FROM,
     to: NOTIFY_TO,
     replyTo: (ev.email || "").trim() || MAIL_REPLY_TO,
+    subject,
+    text,
+    html: buildShellHtml(headline, inner),
+  });
+  return { configured: true, sent: true };
+}
+
+/**
+ * Tell JVO about a Cheddar Up event the automation deliberately won't act on.
+ *
+ *   "unmatched" — a deposit arrived but no registration fits it (the guest used
+ *                 a different name AND email, or typed the wrong event date).
+ *                 Money is in; the booking isn't live. Someone has to connect
+ *                 the two by hand.
+ *   "refund"    — Cheddar Up's refund email carries a name and nothing else, so
+ *                 matching it to a booking would be a guess. The date is NOT
+ *                 released automatically.
+ *
+ * @param {object} a - { kind, name, email?, eventDate?, amount?, date? }
+ */
+export async function sendIntakeAlertToVenue(a) {
+  const t = getTransporter();
+  if (!t) return { configured: false, sent: false };
+  const money = (n) => (typeof n === "number" ? `$${n.toFixed(2)}` : "—");
+
+  const isRefund = a.kind === "refund";
+  const headline = isRefund
+    ? "Deposit refunded — check the booking"
+    : "Deposit received, but no matching registration";
+  const subject = isRefund
+    ? `REFUND — ${a.name}'s deposit (${money(a.amount)}) was refunded`
+    : `ACTION NEEDED — ${a.name} paid a deposit we can't match`;
+
+  const explain = isRefund
+    ? "Cheddar Up's refund notice only carries the payer's name, so the automation can't tell which booking it belongs to and has NOT released any date. If this refund cancels a booking, release the date on the calendar by hand."
+    : "The deposit has been paid, but no registration on the form matches it by email and event date — so the booking is NOT live: no calendar hold, no email to the guest, no invoice. Usually the guest paid under a different name or email, or typed the wrong event date on Cheddar Up. Find their registration and process it by hand.";
+
+  const facts = [
+    ["Name", a.name || "—"],
+    a.email ? ["Email", a.email] : null,
+    a.eventDate ? ["Event date (Cheddar Up)", prettyDate(a.eventDate)] : null,
+    ["Amount", money(a.amount)],
+    a.date ? ["Received", prettyDate(a.date)] : null,
+  ].filter(Boolean);
+
+  const text = `${headline}
+
+${facts.map(([k, v]) => `${(k + ":").padEnd(26)}${v}`).join("\n")}
+
+${explain}
+
+— JVO Events automation`;
+
+  const inner = `
+<div style="border:2px solid #b4232a;background:#fdf3f3;padding:16px 20px;margin:0 0 22px 0;">
+  <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#b4232a;font-weight:bold;">${escapeHtml(headline)}</div>
+</div>
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-size:15px;color:#2b2b2b;margin:0 0 22px 0;">
+  ${facts
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:4px 14px 4px 0;color:#777;white-space:nowrap;">${escapeHtml(k)}</td><td style="padding:4px 0;">${escapeHtml(String(v))}</td></tr>`
+    )
+    .join("")}
+</table>
+<p style="font-size:15px;line-height:1.6;margin:0;color:#2b2b2b;">${escapeHtml(explain)}</p>`;
+
+  await t.sendMail({
+    from: MAIL_FROM,
+    to: NOTIFY_TO,
+    replyTo: (a.email || "").trim() || MAIL_REPLY_TO,
     subject,
     text,
     html: buildShellHtml(headline, inner),

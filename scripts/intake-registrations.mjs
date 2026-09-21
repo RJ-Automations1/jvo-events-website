@@ -1,7 +1,7 @@
 /**
- * Run the registration intake by hand: read the JVO inbox and give every
- * registration its calendar hold, pipeline record, invoice (with add-ons) and
- * confirmation email.
+ * Run the booking intake by hand. The Cheddar Up $150 DEPOSIT is the trigger:
+ * each deposit is matched to its registration, and only then does the booking
+ * get its calendar hold, pipeline record, invoice (with add-ons) and email.
  *
  * DRY RUN BY DEFAULT — prints what it would do and touches nothing. Pass
  * --apply to actually do it, and --send-invoices to finalize and email the
@@ -50,8 +50,13 @@ const summary = await runEmailIntakeSweep({
 console.log("\n" + "═".repeat(70));
 console.log(
   `${summary.dryRun ? "DRY RUN — nothing changed" : "APPLIED"}  ·  ` +
-    `found ${summary.found}, processed ${summary.processed}, skipped ${summary.skipped}`
+    `${summary.deposits} deposit(s): ${summary.activated} going live, ` +
+    `${summary.alreadyLive} already live, ${summary.skipped} skipped, ` +
+    `${summary.unmatched.length} unmatched, ${summary.refunds.length} refund(s) to report`
 );
+for (const u of summary.unmatched) {
+  console.log(`  UNMATCHED  ${u.name} <${u.email}> event ${u.eventDate || "?"} — ${u.reason}`);
+}
 if (summary.errors.length) {
   console.log("\nerrors:");
   for (const e of summary.errors) console.log("  -", e);

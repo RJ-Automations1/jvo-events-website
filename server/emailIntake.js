@@ -1,18 +1,23 @@
 /**
- * Registration intake from the JVO inbox.
- * ---------------------------------------
- * The JotForm → /api/jotform-hook webhook has never fired, so nothing
- * downstream of a registration has ever run automatically. This sweep closes
- * that gap using the intake path that demonstrably works: the submission email
- * (see server/jotformEmail.js), which is also the ONLY source carrying the
- * guest's paid add-ons — the Google Sheet has no column for them.
+ * Booking intake from the JVO inbox — triggered by the Cheddar Up DEPOSIT.
+ * ------------------------------------------------------------------------
+ * Filling in the registration form does NOT make a booking. The form is stored
+ * (it lands in the inbox and the Master List) and nothing visible happens: no
+ * calendar hold, no email to the guest, no invoice. A date is only blocked once
+ * the guest has put money down.
  *
- * For each registration it runs the same workflow the webhook was supposed to:
+ * The trigger is Cheddar Up's "Payment Received: Security Deposit for Outdoor
+ * Event" email to jonesborovirtualoffice@ (see server/cheddarUp.js). Each one is
+ * matched to its registration by email + event date, and only then does this run:
  *
  *   1. Timed calendar hold        (never all-day — see the startTime guard)
- *   2. SQLite pipeline record     (so the reminder sweeps can find it)
+ *   2. SQLite pipeline record     (status → booked, deposit_paid_at set)
  *   3. Stripe invoice             (package + every add-on as its own line)
- *   4. Guest confirmation + venue notification
+ *   4. Registration-received email + venue notification
+ *
+ * Registrations come from the JotForm submission email (server/jotformEmail.js)
+ * because it's the only source carrying the guest's paid add-ons — the Google
+ * Sheet has no column for them.
  *
  * Every step is independently idempotent — the calendar dedups on the JotForm
  * submission id, the DB on `jotform_id`, and Stripe on event date — so running
@@ -33,15 +38,24 @@
  */
 
 import { fetchRecentSubmissions, inboxConfigured } from "./jotformEmail.js";
+import { fetchCheddarEvents, cheddarConfigured, matchDeposit } from "./cheddarUp.js";
 import { createCalendarEvent, getCalendarHold } from "./googleCalendar.js";
-import { createEventRecord } from "./pipeline.js";
+import { createEventRecord, transition } from "./pipeline.js";
+import { nowIso } from "./db.js";
 import { getDb } from "./db.js";
-import { createEventInvoice, amountOwedCents, invoicesConfigured } from "./stripeInvoices.js";
+import {
+  createEventInvoice,
+  amountOwedCents,
+  invoicesConfigured,
+  cardFeeCents,
+  CARD_FEE_PERCENT,
+} from "./stripeInvoices.js";
 import { payLinkUrl, payLinksConfigured } from "./partialPayments.js";
 import {
   sendBookingConfirmation,
   sendBookingNotification,
   sendInvoiceNoticeToVenue,
+  sendIntakeAlertToVenue,
 } from "./email.js";
 import {
   EVENT_PACKAGES,
@@ -136,6 +150,8 @@ export async function intakeOne(booking, opts = {}) {
     packageId: pkg.id,
     hours,
     endTime,
+    // Reached via a Cheddar Up deposit — the email says it's received, not owed.
+    depositPaid: Boolean(opts.deposit),
     message: [
       booking.vehicleCount ? `Vehicles expected: ${booking.vehicleCount}.` : "",
       booking.address ? `Address: ${booking.address}.` : "",
@@ -176,8 +192,17 @@ export async function intakeOne(booking, opts = {}) {
         ? "already held"
         : `would hold ${booking.eventDate} ${enriched.startTime}–${enriched.endTime}`,
       pipeline: result.alreadyKnown ? `already ${result.alreadyKnown}` : "would create record",
-      invoice: `would ${sendInvoice ? "send" : "draft"} $${(pkg.basePrice + addOnTotal).toFixed(2)}` +
-        (booking.addOns.length ? ` (incl. $${addOnTotal.toFixed(2)} add-ons)` : ""),
+      // Quote the same total the real invoice will carry, card fee included —
+      // a preview that understates the bill is worse than no preview.
+      invoice: (() => {
+        const sub = (pkg.basePrice + addOnTotal) * 100;
+        const total = (sub + cardFeeCents(sub)) / 100;
+        return (
+          `would ${sendInvoice ? "send" : "draft"} $${total.toFixed(2)}` +
+          (booking.addOns.length ? ` (incl. $${addOnTotal.toFixed(2)} add-ons)` : "") +
+          (cardFeeCents(sub) ? ` (incl. ${CARD_FEE_PERCENT}% card fee)` : "")
+        );
+      })(),
       emails: result.alreadyKnown
         ? "skipped — already handled"
         : "would send confirmation + venue notification",
@@ -213,6 +238,29 @@ export async function intakeOne(booking, opts = {}) {
       const { event, created } = createEventRecord(db, enriched);
       result.steps.pipeline = `${created ? "created" : "existing"} ${event.public_id}`;
       enriched.publicId = event.public_id;
+
+      // The deposit is what made this booking real, so record it and move the
+      // booking out of awaiting_deposit. That's also what starts the reminder
+      // clock — the sweep only chases bookings that have actually paid in.
+      if (opts.deposit && !event.deposit_paid_at) {
+        db.prepare("UPDATE events SET deposit_paid_at = ?, updated_at = ? WHERE id = ?").run(
+          opts.deposit.paidOn || nowIso(),
+          nowIso(),
+          event.id
+        );
+        if (event.status === "awaiting_deposit") {
+          const moved = transition(
+            db,
+            event.id,
+            "booked",
+            "intake",
+            `Cheddar Up deposit $${opts.deposit.amount ?? 150} received ` +
+              `${opts.deposit.paidOn || ""} (matched by ${opts.deposit.matchedBy})`
+          );
+          if (!moved.ok) result.errors.push(`status: ${moved.error}`);
+        }
+        result.steps.pipeline += " → booked (deposit received)";
+      }
     } else {
       result.steps.pipeline = "no database";
     }
@@ -294,57 +342,168 @@ export async function intakeOne(booking, opts = {}) {
   return result;
 }
 
+
+/** Plain-calendar date maths for the lookback window. */
+function daysAgoDate(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+}
+
 /**
- * Sweep the inbox and process every registration found.
+ * How far back to look for Cheddar Up deposits. Deposits are safe to re-see —
+ * an existing calendar hold marks one as already handled — so this only bounds
+ * how much of the inbox gets read, and gives a missed daily run room to catch up.
+ */
+const DEPOSIT_LOOKBACK_DAYS = Number(process.env.DEPOSIT_LOOKBACK_DAYS || "30");
+
+/**
+ * Refunds are REPORTED, never acted on, and carry nothing to dedup them by. So
+ * report only those that arrived since the last daily run — otherwise every
+ * refund in the lookback window would be re-reported to JVO every morning.
+ */
+const REFUND_LOOKBACK_DAYS = Number(process.env.REFUND_LOOKBACK_DAYS || "1");
+
+/**
+ * The daily sweep. THE $150 CHEDDAR UP DEPOSIT IS THE TRIGGER.
  *
- * @param {object} [opts] - { dryRun, limit, since, sendInvoice }
+ * A guest filling in the registration form changes nothing visible: the form
+ * is stored (in the inbox and the Master List) but there is no calendar hold,
+ * no email, no invoice. Only when Cheddar Up tells jonesborovirtualoffice@ that
+ * the deposit landed does the booking go live:
+ *
+ *   deposit email  →  matched to its registration (email + event date)
+ *                  →  timed calendar hold, pipeline record, invoice,
+ *                     registration-received email, venue notification
+ *                  →  the 21/17/15/14-day reminders start from there
+ *
+ * Anything that can't be matched cleanly goes to JVO for a human rather than
+ * being guessed at: a deposit with no registration, and every refund.
+ *
+ * @param {object} [opts] - { dryRun, sendInvoice }
  * @returns {Promise<object>} summary
  */
 export async function runEmailIntakeSweep(opts = {}) {
   const dryRun = opts.dryRun === true || !ENABLED;
-  const summary = { enabled: ENABLED, dryRun, found: 0, processed: 0, skipped: 0, results: [], errors: [] };
+  const summary = {
+    enabled: ENABLED,
+    dryRun,
+    deposits: 0,
+    activated: 0,
+    alreadyLive: 0,
+    skipped: 0,
+    unmatched: [],
+    refunds: [],
+    results: [],
+    errors: [],
+  };
 
-  if (!inboxConfigured()) {
+  if (!inboxConfigured() || !cheddarConfigured()) {
     summary.errors.push("SMTP_USER / SMTP_PASS not set — cannot read the inbox");
     console.warn("[intake] inbox not configured");
     return summary;
   }
 
-  let bookings;
+  let events;
+  let registrations;
   try {
-    bookings = await fetchRecentSubmissions({
-      limit: opts.limit ?? 25,
-      since: opts.since,
-    });
+    [events, registrations] = await Promise.all([
+      fetchCheddarEvents({ since: daysAgoDate(DEPOSIT_LOOKBACK_DAYS), limit: 200 }),
+      // Registrations can precede their deposit by weeks, so read further back.
+      fetchRecentSubmissions({ limit: 200 }),
+    ]);
   } catch (err) {
     summary.errors.push(`inbox: ${err.message}`);
     console.error("[intake] could not read the inbox:", err.message);
     return summary;
   }
 
-  summary.found = bookings.length;
-  for (const booking of bookings) {
-    for (const w of booking.warnings) {
-      console.warn(`[intake] ${booking.email || booking.submissionId || "?"}: ${w}`);
+  // ── Refunds: report, never act ───────────────────────────────────────────
+  const refundCutoff = daysAgoDate(REFUND_LOOKBACK_DAYS).toISOString();
+  for (const r of events.filter((e) => e.kind === "refund")) {
+    if (String(r.receivedAt) < refundCutoff) continue;
+    summary.refunds.push(r);
+    console.warn(`[intake] REFUND ${r.name} $${r.amount} — needs a human (no email/date to match on)`);
+    if (!dryRun) {
+      try {
+        await sendIntakeAlertToVenue({
+          kind: "refund",
+          name: r.name,
+          amount: r.amount,
+          date: r.paidOn,
+        });
+      } catch (err) {
+        summary.errors.push(`refund alert (${r.name}): ${err.message}`);
+      }
     }
+  }
+
+  // ── Deposits: the trigger ────────────────────────────────────────────────
+  const deposits = events.filter((e) => e.kind === "deposit");
+  summary.deposits = deposits.length;
+
+  for (const dep of deposits) {
+    const { registration, how } = matchDeposit(dep, registrations);
+
+    if (!registration) {
+      // Paid, but we can't tell for what. Never guess — a wrong match puts the
+      // wrong guest's date on the calendar and emails them an invoice.
+      summary.unmatched.push({ ...dep, reason: how });
+      console.warn(
+        `[intake] UNMATCHED deposit: ${dep.name} <${dep.email}> for ${dep.eventDate || "?"} — ${how}`
+      );
+      // Past events don't need a human; only chase unmatched deposits that
+      // still matter.
+      if (!dryRun && dep.eventDate && dep.eventDate >= todayYmd()) {
+        try {
+          await sendIntakeAlertToVenue({
+            kind: "unmatched",
+            name: dep.name,
+            email: dep.email,
+            eventDate: dep.eventDate,
+            amount: dep.amount,
+            date: dep.paidOn,
+          });
+        } catch (err) {
+          summary.errors.push(`unmatched alert (${dep.name}): ${err.message}`);
+        }
+      }
+      continue;
+    }
+
+    for (const w of registration.warnings) {
+      console.warn(`[intake] ${registration.email}: ${w}`);
+    }
+
     try {
-      const r = await intakeOne(booking, { dryRun, sendInvoice: opts.sendInvoice });
+      const r = await intakeOne(registration, {
+        dryRun,
+        sendInvoice: opts.sendInvoice,
+        deposit: { ...dep, matchedBy: how },
+      });
       summary.results.push(r);
       if (r.skipped) {
         summary.skipped++;
-        console.warn(`[intake] SKIP ${booking.email}: ${r.skipped}`);
+        // Past-dated skips are expected noise (the inbox goes back months).
+        if (!/in the past/.test(r.skipped)) {
+          console.warn(`[intake] SKIP ${registration.email}: ${r.skipped}`);
+        }
+      } else if (r.alreadyKnown) {
+        summary.alreadyLive++;
       } else {
-        summary.processed++;
+        summary.activated++;
         console.log(
-          `[intake] ${dryRun ? "DRY RUN " : ""}${booking.name} (${booking.eventDate}): ` +
+          `[intake] ${dryRun ? "DRY RUN " : ""}DEPOSIT → LIVE: ${registration.name} ` +
+            `(${registration.eventDate}, matched by ${how}): ` +
             Object.entries(r.steps).map(([k, v]) => `${k}=${v}`).join(", ")
         );
       }
-      for (const e of r.errors) summary.errors.push(`${booking.email}: ${e}`);
+      for (const e of r.errors) summary.errors.push(`${registration.email}: ${e}`);
     } catch (err) {
-      summary.errors.push(`${booking.email}: ${err.message}`);
-      console.error(`[intake] failed for ${booking.email}:`, err.message);
+      summary.errors.push(`${registration.email}: ${err.message}`);
+      console.error(`[intake] failed for ${registration.email}:`, err.message);
     }
   }
+
   return summary;
 }
