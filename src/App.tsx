@@ -10,6 +10,7 @@ import Weddings from "@/pages/Weddings";
 import Testimonials from "@/pages/Testimonials";
 import Book from "@/pages/Book";
 import Tour from "@/pages/Tour";
+import Pay from "@/pages/Pay";
 import NotFound from "@/pages/NotFound";
 import ChatWidget from "@/components/ChatWidget";
 
@@ -57,6 +58,8 @@ export default function App() {
         <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/book" element={<Book />} />
         <Route path="/tour" element={<Tour />} />
+        {/* Balance payment link emailed to guests — see server/partialPayments.js */}
+        <Route path="/pay/:token" element={<Pay />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <ChatWidget />

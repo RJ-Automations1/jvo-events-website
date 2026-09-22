@@ -56,10 +56,35 @@ One-time setup (~5 min, all in `server/googleCalendar.js`'s header too):
 2. Credentials → **Create Service Account** → make a **JSON key**, download it.
 3. In Google Calendar (as `jonesborovirtualoffice`), the booking calendar →
    Settings → **Share with specific people** → add the service account's email
-   with **"See all event details"**.
+   with **"Make changes to events"**. Read-only ("See all event details") is
+   *not* enough — the server also writes booking holds onto this calendar.
 4. Set Render env vars:
    - `GOOGLE_CALENDAR_ID` — Calendar Settings → "Integrate calendar" → Calendar ID
    - `GOOGLE_SERVICE_ACCOUNT_JSON` — the entire JSON key on one line
+
+### Which calendar holds go on
+
+`GOOGLE_CALENDAR_ID` decides where every booking hold lands, and it is easy to
+point it somewhere nobody looks. It originally pointed at a standalone
+secondary calendar titled **"Outdoor Event Center"**
+(`1830514f…@group.calendar.google.com`), which only the JVO account and the
+service account could see — so confirmed bookings appeared to be missing.
+
+**Order matters when changing it.** Share the new calendar with the service
+account *first*, then change `GOOGLE_CALENDAR_ID`. Flipping the ID before the
+share exists leaves the service account unable to read or write it: the Book
+page shows every date as free and new holds silently fail to be created.
+
+To move existing holds after repointing, run the migration (dry run by default):
+
+```bash
+node scripts/migrate-calendar.mjs            # print the plan
+node scripts/migrate-calendar.mjs --apply    # copy them over
+```
+
+It only moves events stamped `jvoSource=website`. JotForm's own all-day
+"JVO Event Space Registration Form" blocks come from JotForm's Google Calendar
+integration and have to be repointed in JotForm itself.
 
 Until set, every date shows available (the endpoint returns an empty booked
 list). Endpoints: `GET /api/availability` (booked dates) and `/api/book`

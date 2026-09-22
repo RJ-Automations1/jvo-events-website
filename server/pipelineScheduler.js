@@ -6,10 +6,27 @@
  * timeline emails from the JVO automated booking workflow:
  *
  *   45 days out  courtesy reminder
- *   30 days out  balance reminder
+ *   21 / 17 / 15 days out  balance reminders (exact days)
  *   15 days out  details-verification request (link to /verify/:token)
- *   14 days out  final-payment-due notice (+ auto booked → awaiting_final_payment)
+ *   14 days out  final-payment-due notice — the contractual cutoff: pay in
+ *                full or the booking is cancelled with no refund
+ *                (+ auto booked → awaiting_final_payment)
+ *   13–1 days out  PAST DUE notice: balance still owing inside the cutoff, so
+ *                the reservation is at risk. Also catches a booking whose
+ *                14-day notice never went out.
  *    3 days out  final event reminder to the guest + prep summary to staff
+ *
+ * NOTE: day 15 carries both a balance reminder and the details-verification
+ * request, so a guest who owes money gets two emails that day. They serve
+ * different purposes; move verify_15 if that's not wanted.
+ *
+ * Unpaid past the 14-day cutoff, the booking is VOIDED — see AUTO_VOID_ENABLED
+ * below; that step is off by default because cancelling a real booking is not
+ * something a cron should start doing without someone deciding it should.
+ *
+ * The money kinds (21/17/15/14/past-due) all read the live balance from Stripe
+ * and are skipped the moment it shows paid in full — nobody is chased for money
+ * they've already sent.
  *
  * Staff scheduling (Step 7 of the workflow) rides the same sweep:
  *   ≤14 days out  understaffed events email every active staff member their
@@ -32,19 +49,56 @@
 import { getDb, nowIso } from "./db.js";
 import { ACTIVE_STATUSES, STAFFING_STATUSES, transition } from "./pipeline.js";
 import { activeStaff, assignmentCount, staffNeeded } from "./staffing.js";
+import { getInvoiceStatus, invoicesConfigured, voidEventInvoice } from "./stripeInvoices.js";
+import { payLinkUrl, payLinksConfigured } from "./partialPayments.js";
+import { releaseCalendarHold } from "./googleCalendar.js";
 import {
   sendCourtesyReminder,
   sendPaymentReminder,
   sendDetailsVerificationRequest,
   sendFinalPaymentDue,
+  sendPastDueNotice,
+  sendBookingVoided,
   sendEventFinalReminder,
   sendEventSummaryToStaff,
   sendStaffAvailabilityRequest,
   sendStaffingAlert,
+  sendInvoiceNoticeToVenue,
 } from "./email.js";
 
 const ENABLED = String(process.env.PIPELINE_EMAILS_ENABLED || "false") === "true";
 const SITE_URL = (process.env.SITE_URL || "https://jvoevents.com").replace(/\/+$/, "");
+
+/**
+ * Days a past-due guest gets to pay before staff cancel the booking. The
+ * contractual cutoff is 14 days out; once that passes the terms allow immediate
+ * cancellation, so this grace window is a courtesy — set it to whatever JVO
+ * actually honours rather than letting the email imply a promise nobody keeps.
+ */
+const PAST_DUE_GRACE_DAYS = Number(process.env.PAST_DUE_GRACE_DAYS || "3");
+
+/**
+ * Whether the sweep may VOID a booking whose balance missed the 14-day cutoff:
+ * cancel it, void the Stripe invoice, release the date, and email the guest.
+ *
+ * OFF by default, and separate from PIPELINE_EMAILS_ENABLED on purpose. Every
+ * other step in this file sends a message; this one destroys a booking and
+ * keeps someone's $150. That should never start happening as a side effect of
+ * turning emails on — it needs its own deliberate decision.
+ *
+ * Even when on, a booking is only voided AFTER its past-due notice has gone out
+ * and the grace period in that email has expired. Nobody is cancelled without
+ * first being told, in writing, the date by which they had to pay.
+ */
+const AUTO_VOID_ENABLED = String(process.env.AUTO_VOID_ENABLED || "false") === "true";
+
+/** Add days to a YYYY-MM-DD, staying on plain calendar dates (no timezone drift). */
+function addDaysYmd(ymd, n) {
+  const [y, m, d] = String(ymd).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
 
 /** Today as YYYY-MM-DD in the venue's timezone (default Eastern). */
 function todayYmd(timeZone = process.env.EVENT_TIMEZONE || "America/New_York") {
@@ -66,9 +120,59 @@ function daysUntil(ymd, today) {
 }
 
 /**
+ * Stripe balance lookups for this sweep, keyed by event id.
+ *
+ * Both money reminders need the same answer ("what's left on this booking?") in
+ * their skip AND their send, and every event would otherwise cost two extra API
+ * round trips. Cleared at the top of each sweep so a balance paid between runs
+ * is picked up next time.
+ */
+let paymentCache = new Map();
+
+/**
+ * What Stripe says is outstanding on this booking.
+ * Falls back to an all-null "unknown" when Stripe isn't configured or errors —
+ * and every caller treats unknown as "say nothing about the amount", never as
+ * "assume unpaid" or "assume paid".
+ */
+async function paymentFor(ev) {
+  if (paymentCache.has(ev.id)) return paymentCache.get(ev.id);
+  const unknown = { configured: false, paidInFull: null, balanceDue: null, invoiceUrl: null };
+  let status = unknown;
+  if (invoicesConfigured()) {
+    try {
+      status = await getInvoiceStatus({ email: ev.email, eventDate: ev.event_date });
+      // Prefer OUR pay page over Stripe's hosted invoice page: Stripe's can only
+      // take the full amount, ours lets the guest pay any part of it and shows
+      // what's left. Falls back to the Stripe page if pay links aren't set up.
+      if (status.invoiceId && payLinksConfigured()) {
+        try {
+          status = { ...status, invoiceUrl: payLinkUrl(status.invoiceId, SITE_URL) };
+        } catch (err) {
+          console.warn(`[pipeline] pay link failed for ${ev.public_id}: ${err.message}`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[pipeline] Stripe lookup failed for ${ev.public_id}: ${err.message}`);
+      status = unknown;
+    }
+  }
+  paymentCache.set(ev.id, status);
+  return status;
+}
+
+/** Don't chase money Stripe already shows as settled. */
+async function skipIfPaid(ev) {
+  const { paidInFull } = await paymentFor(ev);
+  return paidInFull === true ? "Stripe shows this booking paid in full" : "";
+}
+
+/**
  * The reminder kinds, oldest window first. Each fires when daysOut falls inside
  * [min, max] and the kind hasn't been logged for the event yet — so an event
  * booked 20 days out simply skips the 45/30-day kinds and starts at 15.
+ *
+ * `skip` may be async — the money kinds ask Stripe before deciding.
  */
 const KINDS = [
   {
@@ -77,13 +181,29 @@ const KINDS = [
     max: 45,
     send: (ev) => sendCourtesyReminder(ev),
   },
-  {
-    kind: "balance_30",
-    min: 15,
-    max: 30,
-    // Reuse the standing 30-day balance reminder email.
-    send: (ev) => sendPaymentReminder({ name: ev.name, email: ev.email, eventDate: ev.event_date }),
-  },
+  // ── Payment chase: 21 → 17 → 15 days out ────────────────────────────────
+  // Exact days (min === max), not windows: they sit close enough together that
+  // overlapping windows would let the first one swallow the rest, and the guest
+  // would get a single reminder instead of three. A sweep that doesn't run
+  // loses that day's notice, but the remaining notices — and past_due below —
+  // still catch the booking, so nothing falls through entirely.
+  ...[21, 17, 15].map((day) => ({
+    kind: `balance_${day}`,
+    min: day,
+    max: day,
+    skip: skipIfPaid,
+    send: async (ev) => {
+      const pay = await paymentFor(ev);
+      return sendPaymentReminder({
+        name: ev.name,
+        email: ev.email,
+        eventDate: ev.event_date,
+        balanceDue: pay.balanceDue ?? undefined,
+        invoiceUrl: pay.invoiceUrl ?? undefined,
+        daysOut: day,
+      });
+    },
+  })),
   {
     kind: "verify_15",
     min: 4,
@@ -92,11 +212,69 @@ const KINDS = [
     send: (ev) => sendDetailsVerificationRequest(ev, `${SITE_URL}/verify/${ev.verify_token}`),
   },
   {
+    // The cutoff notice: balance due today, or the booking is cancelled and the
+    // $150 deposit is forfeit. Exact day, like the chases above.
     kind: "final_due_14",
-    min: 4,
+    min: 14,
     max: 14,
-    skip: (ev) => (ev.final_paid_at ? "final payment already recorded" : ""),
-    send: (ev) => sendFinalPaymentDue(ev),
+    skip: async (ev) =>
+      ev.final_paid_at ? "final payment already recorded" : skipIfPaid(ev),
+    send: async (ev) => {
+      const pay = await paymentFor(ev);
+      return sendFinalPaymentDue({
+        ...ev,
+        balanceDue: pay.balanceDue ?? undefined,
+        invoiceUrl: pay.invoiceUrl ?? undefined,
+      });
+    },
+  },
+  {
+    // PAST DUE. Inside the 14-day cutoff and Stripe still shows money owing —
+    // the reservation is now at risk. Deliberately a WINDOW, not an exact day:
+    // it is the safety net that catches a booking whose 14-day notice was
+    // missed (server down, added to the pipeline late), so nobody reaches their
+    // event date having never been told their reservation was in jeopardy.
+    kind: "past_due",
+    min: 1,
+    max: 13,
+    skip: async (ev) =>
+      ev.final_paid_at ? "final payment already recorded" : skipIfPaid(ev),
+    send: async (ev) => {
+      const pay = await paymentFor(ev);
+      // Tell JVO at the same moment the guest is told — the venue needs to know
+      // a booking is at risk while there's still time to chase it by phone.
+      try {
+        await sendInvoiceNoticeToVenue(
+          {
+            name: ev.name,
+            email: ev.email,
+            event_date: ev.event_date,
+            publicId: ev.public_id,
+            invoiceUrl: pay.invoiceUrl,
+            amountDue: pay.balanceDue,
+            dueDate: addDaysYmd(ev.event_date, -14),
+          },
+          "past_due"
+        );
+      } catch (err) {
+        console.warn(`[pipeline] venue past-due alert failed for ${ev.public_id}: ${err.message}`);
+      }
+      return sendPastDueNotice({
+        ...ev,
+        balanceDue: pay.balanceDue ?? undefined,
+        invoiceUrl: pay.invoiceUrl ?? undefined,
+        // The date the balance was contractually due — 14 days before the event.
+        cutoffDate: addDaysYmd(ev.event_date, -14),
+        // Someone who BOOKED inside the 14-day window never had a deadline to
+        // miss; their terms are "full balance up front". Telling them they
+        // missed a cutoff that predates their own booking reads as a mistake
+        // and invites an argument, so the email changes wording instead.
+        bookedAfterCutoff:
+          String(ev.created_at || "").slice(0, 10) > addDaysYmd(ev.event_date, -14),
+        // How long they now have to save the booking before staff cancel it.
+        graceDays: PAST_DUE_GRACE_DAYS,
+      });
+    },
   },
   {
     kind: "event_3day_guest",
@@ -122,6 +300,7 @@ const KINDS = [
 export async function runPipelineSweep(opts = {}) {
   const dryRun = opts.dryRun === true || !ENABLED;
   const today = todayYmd();
+  paymentCache = new Map(); // fresh Stripe answers each sweep
   const summary = {
     today,
     enabled: ENABLED,
@@ -177,11 +356,21 @@ export async function runPipelineSweep(opts = {}) {
       }
     }
 
+    // No deposit, no emails. A registration isn't a booking until the Cheddar Up
+    // deposit lands — before that the guest hears nothing from us, reminders
+    // included. (Intake only creates a record once the deposit arrives, so this
+    // mainly guards records made by hand or before the deposit rule existed.)
+    if (ev.status === "awaiting_deposit" && !ev.deposit_paid_at) continue;
+
     for (const k of KINDS) {
       if (daysOut < k.min || daysOut > k.max) continue;
       if (alreadySent.get(ev.id, k.kind)) continue;
-      const skipReason = k.skip ? k.skip(ev) : "";
-      if (skipReason) continue;
+      // Awaited: the money kinds check Stripe before deciding to chase.
+      const skipReason = k.skip ? await k.skip(ev) : "";
+      if (skipReason) {
+        console.log(`[pipeline] skip ${k.kind} for ${ev.public_id}: ${skipReason}`);
+        continue;
+      }
       if (!ev.email && !k.toStaff) continue;
 
       const label = `${k.kind} → ${k.toStaff ? "staff" : ev.email} (${ev.public_id}, ${ev.event_date}, ${daysOut}d out)`;
@@ -202,6 +391,62 @@ export async function runPipelineSweep(opts = {}) {
       } catch (err) {
         console.error(`[pipeline] send failed ${label}:`, err.message);
         summary.errors.push(`${k.kind}(${ev.public_id}): ${err.message}`);
+      }
+    }
+
+    // --- Void a booking that never paid ------------------------------------
+    // Only after the past-due notice went out AND the grace period in it has
+    // expired — so the guest was told a deadline in writing before this runs.
+    if (AUTO_VOID_ENABLED && daysOut < 14 && !ev.final_paid_at) {
+      const notice = db
+        .prepare("SELECT sent_at FROM email_log WHERE event_id = ? AND kind = 'past_due'")
+        .get(ev.id);
+      const graceOver =
+        notice?.sent_at &&
+        String(notice.sent_at).slice(0, 10) <= addDaysYmd(today, -PAST_DUE_GRACE_DAYS);
+
+      if (graceOver) {
+        const pay = await paymentFor(ev);
+        if (pay.paidInFull === false) {
+          if (dryRun) {
+            console.log(`[pipeline] DRY RUN — would VOID ${ev.public_id} (${ev.event_date})`);
+          } else {
+            try {
+              const voided = await voidEventInvoice({
+                email: ev.email,
+                eventDate: ev.event_date,
+              });
+              const released = await releaseCalendarHold({
+                eventDate: ev.event_date,
+                submissionId: ev.jotform_id,
+              });
+              const moved = transition(
+                db,
+                ev.id,
+                "cancelled_nonpayment",
+                "scheduler",
+                `auto-void: balance unpaid past the 14-day cutoff`
+              );
+              if (moved.ok) {
+                await sendBookingVoided({
+                  ...ev,
+                  cutoffDate: addDaysYmd(ev.event_date, -14),
+                });
+                summary.voided = (summary.voided || 0) + 1;
+                console.warn(
+                  `[pipeline] VOIDED ${ev.public_id}: invoice ${voided.ok ? "voided" : voided.reason}, ` +
+                    `date ${released.ok ? "released" : released.reason}`
+                );
+              } else {
+                summary.errors.push(`void(${ev.public_id}): ${moved.error}`);
+              }
+            } catch (err) {
+              summary.errors.push(`void(${ev.public_id}): ${err.message}`);
+              console.error(`[pipeline] void failed for ${ev.public_id}:`, err.message);
+            }
+          }
+          continue; // cancelled — no staffing work for this event
+        }
       }
     }
 

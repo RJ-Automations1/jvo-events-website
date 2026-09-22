@@ -6,7 +6,7 @@
  * a real answer here — see the note in invoices.js about why we'd rather send
  * nothing than send a number we guessed.
  *
- * Events   — the rental package price ($550 / $800 / $1,300, plus any extra
+ * Events   — the rental package price ($600 / $800 / $1,300, plus any extra
  *            hours at $150). The $150 security deposit is refundable and
  *            separate, so it is NOT credited against this.
  * Weddings — whatever the couple selected on the form's payment element, minus
