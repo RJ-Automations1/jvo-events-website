@@ -65,8 +65,10 @@ const NOTIFY_TO = (process.env.NOTIFY_TO || MAIL_REPLY_TO)
  * -----------
  * The logo ships with the app, so we attach it inline (a "cid:" reference)
  * rather than hotlinking it. That matters for two reasons:
- *   1. jvoevents.com is a domain forwarder — it redirects "/" to the Render app
- *      but 404s deep paths, so a hotlinked /manus-storage/... URL never loads.
+ *   1. jvoevents.com used to be a domain forwarder that redirected "/" but
+ *      404'd deep paths. It's now a verified Render custom domain and deep
+ *      paths serve (checked 2026-09-22: /pay/<token> and /book both 200), so
+ *      this reason no longer holds — but reason 2 still does.
  *   2. Many mail clients block remote images by default; inline attachments
  *      render without the recipient clicking "show images".
  * LOGO_URL is only a fallback for when the file isn't on disk; point it at a

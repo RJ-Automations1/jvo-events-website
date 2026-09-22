@@ -195,6 +195,7 @@ export async function intakeOne(booking, opts = {}) {
       // Quote the same total the real invoice will carry, card fee included —
       // a preview that understates the bill is worse than no preview.
       invoice: (() => {
+        if (result.alreadyKnown) return "left alone — booking already handled";
         const sub = (pkg.basePrice + addOnTotal) * 100;
         const total = (sub + cardFeeCents(sub)) / 100;
         return (
@@ -269,7 +270,17 @@ export async function intakeOne(booking, opts = {}) {
   }
 
   // 3. Stripe invoice — package plus every add-on as its own line.
-  try {
+  //
+  // NOT for a booking that was already handled. Its billing has been dealt
+  // with — sent, or deliberately left as a draft by someone who knew something
+  // the automation doesn't (Betty Hagan's draft was held back because she was
+  // believed to have paid). createEventInvoice finalizes and SENDS an existing
+  // draft when asked to send, so re-running this step would email that guest a
+  // bill a human had chosen not to send. A new booking gets its invoice once;
+  // after that, invoices are changed by hand, not by the sweep.
+  if (result.alreadyKnown) {
+    result.steps.invoice = "left alone — booking already handled";
+  } else try {
     if (invoicesConfigured()) {
       const addOnLines = booking.addOns.map((a) => ({
         id: a.knownId || a.label.toLowerCase().replace(/\s+/g, "-"),
