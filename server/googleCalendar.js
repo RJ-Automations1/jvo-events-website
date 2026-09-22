@@ -317,7 +317,9 @@ export async function createCalendarEvent(booking) {
       ? "\n⚠ DOUBLE-BOOKING WARNING: this slot already looked taken when the form came in. Confirm with the guest before accepting the deposit."
       : null,
     "",
-    "Created automatically from the JVO website booking form. Deposit pending until paid on Cheddar Up.",
+    booking.depositPaid
+      ? "Created automatically when the $150 Cheddar Up deposit was received."
+      : "Created automatically from the JVO website booking form. Deposit pending until paid on Cheddar Up.",
   ]
     .filter((l) => l !== null)
     .join("\n");
@@ -326,7 +328,11 @@ export async function createCalendarEvent(booking) {
     calendarId: CALENDAR_ID,
     requestBody: {
       // Lead with the space so it's scannable on a multi-space calendar.
-      summary: `${booking.conflict ? "⚠ CONFLICT — " : ""}${space} — ${name}${pkg} (deposit pending)`,
+      // Holds made by the deposit-triggered intake exist BECAUSE the deposit
+      // landed, so label them as paid — staff read this off the calendar.
+      summary: `${booking.conflict ? "⚠ CONFLICT — " : ""}${space} — ${name}${pkg} ${
+        booking.depositPaid ? "(deposit paid)" : "(deposit pending)"
+      }`,
       description,
       ...(timed
         ? {

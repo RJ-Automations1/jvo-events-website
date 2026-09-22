@@ -793,10 +793,22 @@ export async function sendCourtesyReminder(ev) {
   if (!to) return { configured: true, sent: false, skipped: "no recipient" };
   const name = firstNameOf(ev.name);
   const dateStr = prettyDate(ev.event_date);
+  // This fires anywhere 31-45 days out (a guest who books late skips straight
+  // in), so the old hardcoded "45 days" was wrong on most sends — a guest 32
+  // days out was told 45. Say the real number.
+  const daysOut = (() => {
+    const m = String(ev.event_date || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return null;
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: process.env.EVENT_TIMEZONE || "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const [ty, tm, td] = today.split("-").map(Number);
+    return Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(ty, tm - 1, td)) / 86400000);
+  })();
+  const awayText = Number.isFinite(daysOut) ? `${daysOut} days away` : "coming up";
+  const toGoText = Number.isFinite(daysOut) ? `${daysOut} days to go` : "Coming up";
 
   const text = `Hi ${name},
 
-Just a friendly note from JVO Events — your event on ${dateStr} is about 45 days away, and we're already looking forward to hosting you.
+Just a friendly note from JVO Events — your event on ${dateStr} is ${awayText}, and we're already looking forward to hosting you.
 
 A few reminders so everything stays effortless:
 - Your $150 security deposit holds your date.
@@ -815,7 +827,7 @@ jvoevents.com`;
 <p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">Hi ${escapeHtml(name)},</p>
 <p style="font-size:16px;line-height:1.6;margin:0 0 18px 0;">
   Just a friendly note from <strong>JVO Events</strong> — your event is about
-  <strong>45 days away</strong>, and we're already looking forward to hosting you:
+  <strong>${awayText}</strong>, and we're already looking forward to hosting you:
 </p>
 ${dateCalloutHtml(escapeHtml(dateStr))}
 <p style="font-size:16px;line-height:1.6;margin:0 0 12px 0;">A few reminders so everything stays effortless:</p>
@@ -833,7 +845,7 @@ ${dateCalloutHtml(escapeHtml(dateStr))}
     from: MAIL_FROM,
     to,
     replyTo: MAIL_REPLY_TO,
-    subject: `45 days to go — your JVO Events booking on ${dateStr}`,
+    subject: `${toGoText} — your JVO Events booking on ${dateStr}`,
     text,
     html: buildShellHtml("45-Day Check-In", inner),
   });
