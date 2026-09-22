@@ -9,6 +9,9 @@ import cron from "node-cron";
 import { createDeskworksReservation } from "./server/deskworks.js";
 import { getBookedDates, getBusyByDate, createCalendarEvent, createTourEvent } from "./server/googleCalendar.js";
 import { getDeskworksBookedDates } from "./server/deskworksAvailability.js";
+import { readJotformPayment } from "./server/jotformPayment.js";
+import { eventsInvoicePlan, weddingsInvoicePlan, KNOWN_PACKAGES } from "./server/bookingPricing.js";
+import { invoiceBooking, recordInvoiceSkip, invoicingConfigured } from "./server/invoices.js";
 import {
   EVENT_WEEKDAYS,
   EVENT_PACKAGES,
@@ -687,6 +690,100 @@ app.post("/api/inquiry", async (req, res) => {
  * the other (so the date gets blocked even if Deskworks errors) and collect the
  * errors. Returns { deskworks, calendar, errors }.
  */
+/**
+ * Bill a booking's balance through Stripe, once.
+ *
+ * The deposit is still Cheddar Up's job; this is the rest. Nothing here is
+ * allowed to throw: the booking is already on the calendar and in the pipeline
+ * by the time we're called, and a billing hiccup must not undo a reservation or
+ * make JotForm retry the whole submission.
+ *
+ * When we can't price a booking we deliberately send nothing and tell staff, so
+ * an unpriceable submission becomes a phone call rather than a wrong invoice —
+ * see the note in server/invoices.js.
+ *
+ * @returns {Promise<object>} a small summary for the webhook log line
+ */
+async function sendBookingInvoice(booking, plan, result) {
+  if (!invoicingConfigured()) return { sent: false, reason: "stripe_not_configured" };
+
+  const db = getDb();
+  const eventId = result?.pipeline?.eventId ?? null;
+  let row = null;
+  try {
+    if (db && booking.submissionId) {
+      row = db.prepare("SELECT * FROM events WHERE jotform_id = ?").get(String(booking.submissionId));
+    }
+    if (!row && db && eventId) {
+      row = db.prepare("SELECT * FROM events WHERE id = ?").get(eventId);
+    }
+  } catch (err) {
+    console.error("[invoice] could not load booking row:", err.message);
+  }
+
+  /*
+   * Without a row there's no idempotency key, and JotForm retries webhooks —
+   * so billing here could bill twice. A missing invoice is recoverable; a
+   * duplicate charge to a customer is not.
+   */
+  if (!row) {
+    console.warn("[invoice] no booking row (DB unavailable?) — skipping to avoid double-billing");
+    return { sent: false, reason: "no_booking_row" };
+  }
+
+  if (!plan) {
+    recordInvoiceSkip(db, row.id, "amount_unknown");
+    await notifyInvoiceProblem(booking, "We couldn't work out the amount automatically.");
+    return { sent: false, reason: "amount_unknown" };
+  }
+
+  try {
+    const outcome = await invoiceBooking(db, row, plan);
+    if (!outcome.sent) {
+      if (outcome.reason !== "already_invoiced") {
+        recordInvoiceSkip(db, row.id, outcome.reason);
+        if (outcome.reason !== "nothing_owed") {
+          await notifyInvoiceProblem(booking, `No invoice sent (${outcome.reason}).`);
+        }
+      }
+      return outcome;
+    }
+    console.log(
+      `[invoice] ${booking.site} ${row.public_id || row.id}: $${outcome.invoice.total.toFixed(2)} → ${booking.email}`
+    );
+    return { sent: true, id: outcome.invoice.id, total: outcome.invoice.total };
+  } catch (err) {
+    console.error("[invoice] send failed:", err.message);
+    recordInvoiceSkip(db, row.id, `error: ${err.message}`.slice(0, 200));
+    await notifyInvoiceProblem(booking, `Stripe rejected the invoice: ${err.message}`);
+    return { sent: false, reason: "error", error: err.message };
+  }
+}
+
+/** Tell the JVO inbox a booking needs invoicing by hand. Best-effort. */
+async function notifyInvoiceProblem(booking, why) {
+  try {
+    await sendInquiryNotification({
+      name: `INVOICE NEEDED — ${booking.name || "booking"}`,
+      email: booking.email || "unknown@jvo",
+      phone: booking.phone || "",
+      message:
+        `${why}\n\n` +
+        `This booking came in and was recorded, but no Stripe invoice was sent.\n` +
+        `Please invoice this customer by hand.\n\n` +
+        `Site:      ${booking.site}\n` +
+        `Name:      ${booking.name || "—"}\n` +
+        `Email:     ${booking.email || "—"}\n` +
+        `Phone:     ${booking.phone || "—"}\n` +
+        `Date:      ${booking.eventDate || "—"}\n` +
+        `Package:   ${booking.package || "—"}\n` +
+        `Submission: ${booking.submissionId || "—"}\n`,
+    });
+  } catch (err) {
+    console.error("[invoice] could not send the staff alert:", err.message);
+  }
+}
+
 async function processBooking(rawBooking) {
   // Always stamp the space so both the Deskworks reservation and the calendar
   // hold say which space (default Outdoor Event Center).
@@ -731,7 +828,8 @@ async function processBooking(rawBooking) {
         ...booking,
         calendarEventId: result.calendar?.id || null,
       });
-      result.pipeline = { publicId: event.public_id, created };
+      // eventId is what the invoicing step keys on when there's no submission id.
+      result.pipeline = { publicId: event.public_id, eventId: event.id, created };
     }
   } catch (err) {
     console.error("[processBooking] pipeline record failed:", err.message);
@@ -753,14 +851,11 @@ async function processBooking(rawBooking) {
 }
 
 // --- JotForm submission webhook → auto-book Deskworks + Google Calendar ---
-// Which JotForm this hook accepts. Only enforced when JOTFORM_FORM_ID is set
-// explicitly — it used to default to the id below, which meant a submission
-// from any OTHER form (a rebuilt registration form, a duplicated one) was
-// silently dropped with a 200 and never reached the pipeline. Unset now means
-// "accept and log the id", so a mismatch shows up as a booking rather than as
-// silence. 222155218269153 is the form DEFAULT_JF_FIELD_MAP is pinned to.
-const JOTFORM_FORM_ID = process.env.JOTFORM_FORM_ID || "";
-const JOTFORM_PINNED_FORM_ID = "222155218269153";
+const JOTFORM_FORM_ID = process.env.JOTFORM_FORM_ID || "222155218269153";
+// The weddings registration form. Point BOTH forms' webhooks at this endpoint;
+// the handler tells them apart by form id and prices each site's rules.
+const JOTFORM_WEDDINGS_FORM_ID =
+  process.env.JOTFORM_WEDDINGS_FORM_ID || "261945498570168";
 const JOTFORM_WEBHOOK_SECRET = process.env.JOTFORM_WEBHOOK_SECRET || "";
 
 /** Coerce a JotForm field value (string or {first,last}/{month,day,year}/…) to text. */
@@ -933,20 +1028,26 @@ app.post("/api/jotform-hook", upload.none(), async (req, res) => {
   // Always answer 200 — JotForm aggressively retries non-2xx responses.
   try {
     const body = req.body || {};
-    const formId = body.formID || body.formId;
-    if (JOTFORM_FORM_ID && formId && String(formId) !== String(JOTFORM_FORM_ID)) {
+    const formId = String(body.formID || body.formId || "");
+
+    /*
+     * Two forms feed this hook: the events booking form and the weddings one.
+     * They price completely differently — an events booking is a fixed rental
+     * package, a wedding is whatever the couple selected on the form's payment
+     * element — so establish which site this is before anything else.
+     *
+     * Anything that is neither is still ignored: a stray form posting here must
+     * never become a booking, let alone an invoice.
+     */
+    const site =
+      formId && formId === String(JOTFORM_WEDDINGS_FORM_ID)
+        ? "weddings"
+        : !formId || formId === String(JOTFORM_FORM_ID)
+          ? "events"
+          : null;
+    if (!site) {
       console.warn(`[jotform-hook] ignoring submission for form ${formId}`);
       return res.status(200).json({ ok: true, ignored: true });
-    }
-    // No pin set: process it, but say loudly which form it came from. If this
-    // isn't the pinned id, DEFAULT_JF_FIELD_MAP's qids won't match and parsing
-    // falls back to the keyword heuristic — worth knowing before it misfires.
-    if (!JOTFORM_FORM_ID && formId && String(formId) !== JOTFORM_PINNED_FORM_ID) {
-      console.warn(
-        `[jotform-hook] submission from form ${formId}, but the field map is pinned to ` +
-          `${JOTFORM_PINNED_FORM_ID}. Processing anyway via keyword matching — set ` +
-          `JOTFORM_FIELD_MAP (and JOTFORM_FORM_ID) to parse this form deterministically.`
-      );
     }
 
     let raw = {};
@@ -964,63 +1065,133 @@ app.post("/api/jotform-hook", upload.none(), async (req, res) => {
       return res.status(200).json({ ok: true, incomplete: true });
     }
 
-    // Work out the window this booking occupies: the form's "Requested Start
-    // Time" plus however long the chosen Rental Package runs. With both we can
-    // drop a TIMED hold that leaves the rest of the day bookable.
-    const pkg = packageFromJotform(booking.package);
-    if (pkg && booking.startTime) {
-      booking.packageId = pkg.id;
-      // The form has no "extra hours" field yet, so a submission is held for the
-      // package's base length. Add that field to the JotForm and map it here to
-      // have added hours reflected on the calendar automatically.
-      booking.hours = hoursFor(pkg, 0);
-      booking.endTime = endTimeFor(booking.startTime, booking.hours);
-    } else {
-      // Without BOTH a package and a start time the hold below degrades to an
-      // all-day block: it swallows the whole date and loses the time the guest
-      // asked for. That's a mapping failure, not a booking without a time — the
-      // form requires "Requested Start Time" — so say so loudly enough to fix.
-      console.warn(
-        `[jotform-hook] NO TIMED HOLD for ${booking.email || "(no email)"} on ` +
-          `${booking.eventDate}: ${!pkg ? `package "${booking.package}" did not match` : ""}` +
-          `${!pkg && !booking.startTime ? " and " : ""}` +
-          `${!booking.startTime ? `start time missing (raw "${booking.startTime}")` : ""}. ` +
-          `Falling back to an ALL-DAY hold — check JOTFORM_FIELD_MAP.`
-      );
-    }
+    booking.site = site;
 
-    // The picker won't offer a taken slot, but the JotForm's own date/time
-    // fields are still editable — so re-check here. We never drop the booking
-    // (that would lose a paying guest); we flag it loudly instead, and the hold
-    // lands on the calendar prefixed "⚠ CONFLICT" for staff to sort out.
-    try {
-      const { configured, taken } = await checkSlot(
-        booking.eventDate,
-        booking.startTime || "",
-        booking.hours || 0
-      );
-      if (configured && taken) {
-        booking.conflict = true;
+    /*
+     * Work out the invoice BEFORE booking anything, so a submission we can't
+     * price is visible in the logs next to the booking it belongs to.
+     *
+     * Events read their price off the chosen rental package. Weddings read it
+     * off the form's payment element — the couple's own selections and total.
+     */
+    let pkg;
+    let plan = null;
+    if (site === "weddings") {
+      const payment = readJotformPayment(raw);
+      plan = weddingsInvoicePlan(payment);
+      if (!plan) {
         console.warn(
-          `[jotform-hook] CONFLICT: ${booking.eventDate} ${
-            booking.startTime ? `${booking.startTime}–${booking.endTime}` : "(whole day)"
-          } already taken —`,
+          "[jotform-hook] weddings submission has no readable payment total —",
+          "invoice skipped, staff notified:",
           booking.email
         );
       }
-    } catch {
-      // Availability check failing must never stop a submission being recorded.
+    } else {
+      // The form's "Requested Start Time" plus however long the chosen package
+      // runs gives us a TIMED hold, leaving the rest of the day bookable.
+      pkg = packageFromJotform(booking.package);
+      if (pkg && booking.startTime) {
+        booking.packageId = pkg.id;
+        // The form has no "extra hours" field yet, so a submission is held for
+        // the package's base length. Add that field to the JotForm and map it
+        // here to have added hours reflected on the calendar automatically.
+        booking.hours = hoursFor(pkg, 0);
+        booking.endTime = endTimeFor(booking.startTime, booking.hours);
+      } else {
+        // Without BOTH a package and a start time the hold below degrades to an
+        // all-day block: it swallows the whole date and loses the time the guest
+        // asked for. That's a mapping failure, not a booking without a time — the
+        // form requires "Requested Start Time" — so say so loudly enough to fix.
+        console.warn(
+          `[jotform-hook] NO TIMED HOLD for ${booking.email || "(no email)"} on ` +
+            `${booking.eventDate}: ${!pkg ? `package "${booking.package}" did not match` : ""}` +
+            `${!pkg && !booking.startTime ? " and " : ""}` +
+            `${!booking.startTime ? `start time missing (raw "${booking.startTime}")` : ""}. ` +
+            `Falling back to an ALL-DAY hold — check JOTFORM_FIELD_MAP.`
+        );
+      }
+      plan = eventsInvoicePlan(booking, pkg);
+      if (!plan) {
+        console.warn(
+          `[jotform-hook] events package not recognised ("${booking.package}") —`,
+          `invoice skipped. Known: ${KNOWN_PACKAGES}`
+        );
+      }
+
+      // The picker won't offer a taken slot, but the JotForm's own date/time
+      // fields are still editable — so re-check here. We never drop the booking
+      // (that would lose a paying guest); we flag it loudly instead, and the
+      // hold lands on the calendar prefixed "⚠ CONFLICT" for staff to sort out.
+      try {
+        const { configured, taken } = await checkSlot(
+          booking.eventDate,
+          booking.startTime || "",
+          booking.hours || 0
+        );
+        if (configured && taken) {
+          booking.conflict = true;
+          console.warn(
+            `[jotform-hook] CONFLICT: ${booking.eventDate} ${
+              booking.startTime ? `${booking.startTime}–${booking.endTime}` : "(whole day)"
+            } already taken —`,
+            booking.email
+          );
+        }
+      } catch {
+        // Availability check failing must never stop a submission being recorded.
+      }
+    }
+
+    /*
+     * EVENTS DO NOT GO LIVE ON THE FORM. A registration is stored and nothing
+     * else happens — no calendar hold, no email to the guest, no invoice — until
+     * the $150 Cheddar Up deposit lands. That deposit is picked up from the JVO
+     * inbox by the intake sweep (server/emailIntake.js), which does the hold,
+     * the welcome email and the invoice in one go.
+     *
+     * Before this, the webhook booked, emailed AND invoiced every events
+     * submission on arrival — i.e. before the guest had paid anything — and
+     * would have billed a second time alongside the deposit intake. The webhook
+     * has never actually fired in production, so this never happened; it's
+     * fixed so that it can't the day the webhook starts working.
+     *
+     * Storing it as awaiting_deposit is safe: the reminder sweep skips any
+     * booking without deposit_paid_at, and the intake sweep finds this row by
+     * jotform_id when the deposit arrives and moves it to booked.
+     *
+     * Weddings are unchanged — their deposit flow is separate and this
+     * automation doesn't read wedding deposits.
+     */
+    if (site === "events") {
+      try {
+        const db = getDb();
+        if (db) createEventRecord(db, booking);
+      } catch (err) {
+        console.error("[jotform-hook] could not store events registration:", err.message);
+      }
+      console.log(
+        `[jotform-hook] events registration stored, awaiting deposit: ${booking.email} ` +
+          `(${booking.eventDate}) — nothing sent, nothing held`
+      );
+      return res.status(200).json({ ok: true, awaitingDeposit: true });
     }
 
     const result = await processBooking(booking);
+
+    // Bill the balance (weddings only — events are invoiced on their deposit,
+    // above). Never fatal — the booking is already recorded, and a failed
+    // invoice is a follow-up, not a lost reservation.
+    const invoice = await sendBookingInvoice(booking, plan, result);
+
     console.log("[jotform-hook] processed:", {
+      site,
       submissionId: booking.submissionId,
       eventDate: booking.eventDate,
-      block: booking.blockId || null,
       conflict: Boolean(booking.conflict),
       deskworks: result.deskworks,
       calendar: result.calendar,
       pipeline: result.pipeline,
+      invoice,
       errors: result.errors,
     });
     return res.status(200).json({ ok: true });

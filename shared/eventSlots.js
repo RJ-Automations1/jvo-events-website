@@ -102,7 +102,7 @@ export function addonLine(id, qty = 1) {
  *
  * The extra-hour caps come from the pricing itself — each one stops just short
  * of the next package up, so adding hours never costs more than simply booking
- * the bigger package (hourly maxes at 4 hrs/$700 under the $800 Half Day; Half
+ * the bigger package (hourly maxes at 4 hrs/$750 under the $800 Half Day; Half
  * Day maxes at 8 hrs/$1,250 under the $1,300 Full Day; Full Day maxes out at
  * the 13-hour opening window).
  */

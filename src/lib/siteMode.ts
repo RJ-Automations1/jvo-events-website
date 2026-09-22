@@ -17,8 +17,9 @@ export const IS_WEDDINGS_SITE = SITE_MODE === "weddings";
 
 /**
  * Where the weddings deployment sends visitors who want the main events site.
- * Set VITE_EVENTS_URL to override (e.g. the jvo-events Render URL while the
- * custom domain is still pointing elsewhere).
+ * Used by the weddings navbar (top-right gold link) and the weddings footer, so
+ * both point at the same place. Set VITE_EVENTS_URL to override (e.g. the
+ * jvo-events Render URL while the custom domain is still pointing elsewhere).
  */
 export const EVENTS_SITE_URL =
   import.meta.env.VITE_EVENTS_URL || "https://www.jvoevents.com";

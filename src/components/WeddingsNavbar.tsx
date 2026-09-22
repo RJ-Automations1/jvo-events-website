@@ -106,6 +106,14 @@ export default function WeddingsNavbar() {
             <Link to="/book" className="btn-white" style={{ padding: "0.7rem 1.6rem" }}>
               Book Your Wedding
             </Link>
+            {/* Far-right gold link back to the main events site. */}
+            <a
+              href={EVENTS_SITE_URL}
+              className="text-xs tracking-[0.18em] uppercase transition-opacity hover:opacity-70 whitespace-nowrap"
+              style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, color: GOLD }}
+            >
+              JVO Events ↗
+            </a>
           </div>
 
           {/* Mobile toggle */}
@@ -135,7 +143,7 @@ export default function WeddingsNavbar() {
       <div
         className="md:hidden overflow-hidden transition-all duration-300"
         style={{
-          maxHeight: open ? "420px" : "0px",
+          maxHeight: open ? "500px" : "0px",
           background: "rgba(8,8,8,0.97)",
           borderBottom: open ? "1px solid rgba(255,255,255,0.08)" : "none",
         }}
@@ -179,6 +187,14 @@ export default function WeddingsNavbar() {
           <Link to="/book" className="btn-white text-center">
             Book Your Wedding
           </Link>
+          <a
+            href={EVENTS_SITE_URL}
+            onClick={() => setOpen(false)}
+            className="text-sm tracking-[0.15em] uppercase text-center"
+            style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, color: GOLD }}
+          >
+            JVO Events ↗
+          </a>
         </div>
       </div>
     </header>
